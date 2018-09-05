@@ -42,6 +42,7 @@
 //#undef USE_MSP_DISPLAYPORT
 //#undef USE_MSP_OVER_TELEMETRY
 
+#undef USE_LED_STRIP
 //#undef USE_HUFFMAN
 //#undef USE_PINIO
 //#undef USE_PINIOBOX
@@ -51,17 +52,13 @@
 //#undef USE_TELEMETRY_LTM
 //#undef USE_SERIALRX_XBUS
 //#undef USE_SERIALRX_SUMH
-//#undef USE_PWM
+#undef USE_PWM
 
 #undef USE_BOARD_INFO
 #undef USE_EXTENDED_CMS_MENUS
 #undef USE_RTC_TIME
 #undef USE_RX_MSP
 #undef USE_ESC_SENSOR_INFO
-
-#if defined(IRCSYNERGYF3)
-#undef USE_LED_STRIP
-#endif
 
 #if defined(ZCOREF3)
 
@@ -97,12 +94,10 @@
 #define ACC_MPU6500_ALIGN CW270_DEG
 
 #elif defined(ZCOREF3)
-#define USE_GYRO
 #define USE_GYRO_MPU6500
 #define USE_GYRO_SPI_MPU6500
 #define GYRO_MPU6500_ALIGN      CW180_DEG
 
-#define USE_ACC
 #define USE_ACC_MPU6500
 #define USE_ACC_SPI_MPU6500
 #define ACC_MPU6500_ALIGN       CW180_DEG
@@ -118,11 +113,9 @@
 #define MPU6500_SPI_INSTANCE    SPI1
 
 #elif defined(IRCSYNERGYF3)
-#define GYRO
 #define USE_GYRO_SPI_MPU6000
 #define GYRO_MPU6000_ALIGN      CW270_DEG
 
-#define ACC
 #define USE_ACC_SPI_MPU6000
 #define ACC_MPU6000_ALIGN       CW270_DEG
 

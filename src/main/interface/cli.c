@@ -88,8 +88,8 @@ extern uint8_t __config_end;
 #include "fc/board_info.h"
 #include "fc/config.h"
 #include "fc/controlrate_profile.h"
-#include "fc/fc_core.h"
-#include "fc/fc_rc.h"
+#include "fc/core.h"
+#include "fc/rc.h"
 #include "fc/rc_adjustments.h"
 #include "fc/rc_controls.h"
 #include "fc/runtime_config.h"
@@ -178,6 +178,9 @@ static bool configIsInCopy = false;
 #define CURRENT_PROFILE_INDEX -1
 static int8_t pidProfileIndexToUse = CURRENT_PROFILE_INDEX;
 static int8_t rateProfileIndexToUse = CURRENT_PROFILE_INDEX;
+
+static bool featureMaskIsCopied = false;
+static uint32_t featureMaskCopy;
 
 #if defined(USE_BOARD_INFO)
 static bool boardInformationUpdated = false;
@@ -2345,9 +2348,18 @@ static void cliMcuId(char *cmdline)
     cliPrintLinef("mcu_id %08x%08x%08x", U_ID_0, U_ID_1, U_ID_2);
 }
 
+static uint32_t getFeatureMask(const uint32_t featureMask)
+{
+    if (featureMaskIsCopied) {
+        return featureMaskCopy;
+    } else {
+        return featureMask;
+    }
+}
+
 static void printFeature(uint8_t dumpMask, const featureConfig_t *featureConfig, const featureConfig_t *featureConfigDefault)
 {
-    const uint32_t mask = featureConfig->enabledFeatures;
+    const uint32_t mask = getFeatureMask(featureConfig->enabledFeatures);
     const uint32_t defaultMask = featureConfigDefault->enabledFeatures;
     for (uint32_t i = 0; featureNames[i]; i++) { // disabled features first
         if (strcmp(featureNames[i], emptyString) != 0) { //Skip unused
@@ -2372,15 +2384,16 @@ static void printFeature(uint8_t dumpMask, const featureConfig_t *featureConfig,
 static void cliFeature(char *cmdline)
 {
     uint32_t len = strlen(cmdline);
-    uint32_t mask = featureMask();
-
+    const uint32_t mask = getFeatureMask(featureMask());
     if (len == 0) {
         cliPrint("Enabled: ");
         for (uint32_t i = 0; ; i++) {
-            if (featureNames[i] == NULL)
+            if (featureNames[i] == NULL) {
                 break;
-            if (mask & (1 << i))
+            }
+            if (mask & (1 << i)) {
                 cliPrintf("%s ", featureNames[i]);
+            }
         }
         cliPrintLinefeed();
     } else if (strncasecmp(cmdline, "list", len) == 0) {
@@ -2394,6 +2407,12 @@ static void cliFeature(char *cmdline)
         cliPrintLinefeed();
         return;
     } else {
+        if (!featureMaskIsCopied) {
+            featureMaskCopy = featureMask();
+            featureMaskIsCopied = true;
+        }
+        uint32_t feature;
+
         bool remove = false;
         if (cmdline[0] == '-') {
             // remove feature
@@ -2409,25 +2428,24 @@ static void cliFeature(char *cmdline)
             }
 
             if (strncasecmp(cmdline, featureNames[i], len) == 0) {
-
-                mask = 1 << i;
+                feature = 1 << i;
 #ifndef USE_GPS
-                if (mask & FEATURE_GPS) {
+                if (feature & FEATURE_GPS) {
                     cliPrintLine("unavailable");
                     break;
                 }
 #endif
 #ifndef USE_RANGEFINDER
-                if (mask & FEATURE_RANGEFINDER) {
+                if (feature & FEATURE_RANGEFINDER) {
                     cliPrintLine("unavailable");
                     break;
                 }
 #endif
                 if (remove) {
-                    featureClear(mask);
+                    featureClear(feature, &featureMaskCopy);
                     cliPrint("Disabled");
                 } else {
-                    featureSet(mask);
+                    featureSet(feature, &featureMaskCopy);
                     cliPrint("Enabled");
                 }
                 cliPrintLinef(" %s", featureNames[i]);
@@ -2946,7 +2964,7 @@ static void cliDshotProg(char *cmdline)
                         pwmWriteDshotCommand(escIndex, getMotorCount(), command, true);
                     } else {
 #if defined(USE_ESC_SENSOR) && defined(USE_ESC_SENSOR_INFO)
-                        if (feature(FEATURE_ESC_SENSOR)) {
+                        if (featureIsEnabled(FEATURE_ESC_SENSOR)) {
                             if (escIndex != ALL_MOTORS) {
                                 executeEscInfoCommand(escIndex);
                             } else {
@@ -3238,7 +3256,11 @@ static void cliSave(char *cmdline)
 #endif
 #endif // USE_BOARD_INFO
 
-    writeEEPROM();
+    if (featureMaskIsCopied) {
+        writeEEPROMWithFeatures(featureMaskCopy);
+    } else {
+        writeEEPROM();
+    }
 
     cliReboot();
 }
@@ -3722,8 +3744,10 @@ const cliResourceValue_t resourceTable[] = {
 #ifdef USE_SERVOS
     DEFA( OWNER_SERVO,         PG_SERVO_CONFIG, servoConfig_t, dev.ioTags[0], MAX_SUPPORTED_SERVOS ),
 #endif
-#if defined(USE_PWM) || defined(USE_PPM)
+#if defined(USE_PPM)
     DEFS( OWNER_PPMINPUT,      PG_PPM_CONFIG, ppmConfig_t, ioTag ),
+#endif
+#if defined(USE_PWM)
     DEFA( OWNER_PWMINPUT,      PG_PWM_CONFIG, pwmConfig_t, ioTags[0], PWM_INPUT_PORT_COUNT ),
 #endif
 #ifdef USE_RANGEFINDER_HCSR04
@@ -4640,9 +4664,9 @@ void cliEnter(serialPort_t *serialPort)
 #else
     cliPrintLine("\r\nCLI");
 #endif
-    cliPrompt();
-
     setArmingDisabled(ARMING_DISABLED_CLI);
+
+    cliPrompt();
 }
 
 void cliInit(const serialConfig_t *serialConfig)
