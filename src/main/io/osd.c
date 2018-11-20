@@ -71,9 +71,7 @@
 #include "flight/failsafe.h"
 #include "flight/position.h"
 #include "flight/imu.h"
-#ifdef USE_ESC_SENSOR
 #include "flight/mixer.h"
-#endif
 #include "flight/pid.h"
 
 #include "io/asyncfatfs/asyncfatfs.h"
@@ -135,10 +133,13 @@ typedef struct statistic_s {
     int16_t max_speed;
     int16_t min_voltage; // /10
     int16_t max_current; // /10
-    int16_t min_rssi;
+    uint8_t min_rssi;
     int32_t max_altitude;
     int16_t max_distance;
     float max_g_force;
+    int16_t max_esc_temp;
+    int32_t max_esc_rpm;
+    uint8_t min_link_quality;
 } statistic_t;
 
 static statistic_t stats;
@@ -150,6 +151,8 @@ static uint8_t armState;
 static bool lastArmState;
 
 static displayPort_t *osdDisplayPort;
+
+static bool suppressStatsDisplay = false;
 
 #ifdef USE_ESC_SENSOR
 static escSensorData_t *escDataCombined;
@@ -205,6 +208,7 @@ static const uint8_t osdElementDisplayOrder[] = {
     OSD_NUMERICAL_VARIO,
     OSD_COMPASS_BAR,
     OSD_ANTI_GRAVITY,
+    OSD_MOTOR_DIAG,
     OSD_FLIP_ARROW,
 #ifdef USE_RTC_TIME
     OSD_RTC_DATETIME,
@@ -214,6 +218,9 @@ static const uint8_t osdElementDisplayOrder[] = {
 #endif
 #ifdef USE_ADC_INTERNAL
     OSD_CORE_TEMPERATURE,
+#endif
+#ifdef USE_RX_LINK_QUALITY_INFO
+    OSD_LINK_QUALITY,
 #endif
 };
 
@@ -266,13 +273,13 @@ static int32_t osdGetMetersToSelectedUnit(int32_t meters)
 }
 
 #if defined(USE_ADC_INTERNAL) || defined(USE_ESC_SENSOR)
-STATIC_UNIT_TESTED int osdConvertTemperatureToSelectedUnit(int tempInDeciDegrees)
+STATIC_UNIT_TESTED int osdConvertTemperatureToSelectedUnit(int tempInDegreesCelcius)
 {
     switch (osdConfig()->units) {
     case OSD_UNIT_IMPERIAL:
-        return ((tempInDeciDegrees * 9) / 5) + 320;
+        return lrintf(((tempInDegreesCelcius * 9.0f) / 5) + 32);
     default:
-        return tempInDeciDegrees;
+        return tempInDegreesCelcius;
     }
 }
 
@@ -476,9 +483,9 @@ static bool osdDrawSingleElement(uint8_t item)
     switch (item) {
     case OSD_FLIP_ARROW: 
         {
-            const int angleR = attitude.values.roll;
-            const int angleP = attitude.values.pitch; // still gotta update all angleR and angleP pointers.
-            if (IS_RC_MODE_ACTIVE(BOXFLIPOVERAFTERCRASH)) {
+            const int angleR = attitude.values.roll / 10;
+            const int angleP = attitude.values.pitch / 10; // still gotta update all angleR and angleP pointers.
+            if (isFlipOverAfterCrashActive()) {
                 if (angleP > 0 && ((angleR > 175 && angleR < 180) || (angleR > -180 && angleR < -175))) {
                     buff[0] = SYM_ARROW_SOUTH;
                 } else if (angleP > 0 && angleR > 0 && angleR < 175) {
@@ -501,12 +508,27 @@ static bool osdDrawSingleElement(uint8_t item)
     case OSD_RSSI_VALUE:
         {
             uint16_t osdRssi = getRssi() * 100 / 1024; // change range
-            if (osdRssi >= 100)
+            if (osdRssi >= 100) {
                 osdRssi = 99;
+            }
 
             tfp_sprintf(buff, "%c%2d", SYM_RSSI, osdRssi);
             break;
         }
+
+#ifdef USE_RX_LINK_QUALITY_INFO
+    case OSD_LINK_QUALITY:
+        {
+            // change range to 0-9 (two sig. fig. adds little extra value, also reduces screen estate)
+            uint8_t osdLinkQuality = rxGetLinkQuality() * 10 / LINK_QUALITY_MAX_VALUE;
+            if (osdLinkQuality >= 10) {
+                osdLinkQuality = 9;
+            }
+
+            tfp_sprintf(buff, "%1d", osdLinkQuality);
+            break;
+        }
+#endif
 
     case OSD_MAIN_BATT_VOLTAGE:
         buff[0] = osdGetBatterySymbol(osdGetBatteryAverageCellVoltage());
@@ -583,6 +605,19 @@ static bool osdDrawSingleElement(uint8_t item)
         }
         break;
 
+    case OSD_TOTAL_DIST:
+        if (STATE(GPS_FIX) && STATE(GPS_FIX_HOME)) {
+            const int32_t distance = osdGetMetersToSelectedUnit(GPS_distanceFlownInCm / 100);
+            tfp_sprintf(buff, "%d%c", distance, osdGetMetersToSelectedUnitSymbol());
+        } else {
+            // We use this symbol when we don't have a FIX
+            buff[0] = SYM_COLON;
+            // overwrite any previous distance with blanks
+            memset(buff + 1, SYM_BLANK, 6);
+            buff[7] = '\0';
+        }
+        break;
+
 #endif // GPS
 
     case OSD_COMPASS_BAR:
@@ -602,13 +637,13 @@ static bool osdDrawSingleElement(uint8_t item)
     case OSD_REMAINING_TIME_ESTIMATE:
         {
             const int mAhDrawn = getMAhDrawn();
-            const int remaining_time = (int)((osdConfig()->cap_alarm - mAhDrawn) * ((float)flyTime) / mAhDrawn);
 
-            if (mAhDrawn < 0.1 * osdConfig()->cap_alarm) {
+            if (mAhDrawn <= 0.1 * osdConfig()->cap_alarm) {  // also handles the mAhDrawn == 0 condition
                 tfp_sprintf(buff, "--:--");
             } else if (mAhDrawn > osdConfig()->cap_alarm) {
                 tfp_sprintf(buff, "00:00");
             } else {
+                const int remaining_time = (int)((osdConfig()->cap_alarm - mAhDrawn) * ((float)flyTime) / mAhDrawn);
                 osdFormatTime(buff, OSD_TIMER_PREC_SECOND, remaining_time);
             }
             break;
@@ -627,13 +662,15 @@ static bool osdDrawSingleElement(uint8_t item)
                 strcpy(buff, "!FS!");
             } else if (FLIGHT_MODE(GPS_RESCUE_MODE)) {
                 strcpy(buff, "RESC");
+            } else if (FLIGHT_MODE(HEADFREE_MODE)) {
+                strcpy(buff, "HEAD");
             } else if (FLIGHT_MODE(ANGLE_MODE)) {
                 strcpy(buff, "STAB");
             } else if (FLIGHT_MODE(HORIZON_MODE)) {
                 strcpy(buff, "HOR ");
             } else if (IS_RC_MODE_ACTIVE(BOXACROTRAINER)) {
                 strcpy(buff, "ATRN");
-            } else if (isAirmodeActive()) {
+            } else if (airmodeIsEnabled()) {
                 strcpy(buff, "AIR ");
             } else {
                 strcpy(buff, "ACRO");
@@ -650,6 +687,20 @@ static bool osdDrawSingleElement(uint8_t item)
 
             break;
         }
+		
+    case OSD_MOTOR_DIAG:
+        if(areMotorsRunning()) {
+            int maxIdx = 0;
+            int i = 0;
+            for(; i < getMotorCount(); i++) {
+                if(motor[i] > motor[maxIdx]) {
+                    maxIdx = i;
+                }
+                buff[i] =  0x88 - scaleRange(motor[i], motorOutputLow, motorOutputHigh, 0, 8);
+            }
+            buff[i] = '\0';
+        }
+        break;
 
     case OSD_CRAFT_NAME:
         // This does not strictly support iterative updating if the craft name changes at run time. But since the craft name is not supposed to be changing this should not matter, and blanking the entire length of the craft name string on update will make it impossible to configure elements to be displayed on the right hand side of the craft name.
@@ -704,11 +755,15 @@ static bool osdDrawSingleElement(uint8_t item)
             // Get pitch and roll limits in tenths of degrees
             const int maxPitch = osdConfig()->ahMaxPitch * 10;
             const int maxRoll = osdConfig()->ahMaxRoll * 10;
-            const int rollAngle = constrain(attitude.values.roll, -maxRoll, maxRoll);
-            int pitchAngle = constrain(attitude.values.pitch, -maxPitch, maxPitch);
+            const int ahSign = osdConfig()->ahInvert ? -1 : 1;
+            const int rollAngle = constrain(attitude.values.roll * ahSign, -maxRoll, maxRoll);
+            int pitchAngle = constrain(attitude.values.pitch * ahSign, -maxPitch, maxPitch);
             // Convert pitchAngle to y compensation value
             // (maxPitch / 25) divisor matches previous settings of fixed divisor of 8 and fixed max AHI pitch angle of 20.0 degrees
-            pitchAngle = ((pitchAngle * 25) / maxPitch) - 41; // 41 = 4 * AH_SYMBOL_COUNT + 5
+            if (maxPitch > 0) {
+                pitchAngle = ((pitchAngle * 25) / maxPitch);
+            }
+            pitchAngle -= 41; // 41 = 4 * AH_SYMBOL_COUNT + 5
 
             for (int x = -4; x <= 4; x++) {
                 const int y = ((-rollAngle * x) / 64) - pitchAngle;
@@ -739,13 +794,8 @@ static bool osdDrawSingleElement(uint8_t item)
 
     case OSD_G_FORCE:
         {
-            osdGForce = 0.0f;
-            for (int axis = 0; axis < XYZ_AXIS_COUNT; axis++) {
-                const float a = accAverage[axis];
-                osdGForce += a * a;
-            }
-            osdGForce = sqrtf(osdGForce) * acc.dev.acc_1G_rec;
-            tfp_sprintf(buff, "%01d.%01dG", (int)osdGForce, (int)(osdGForce * 10) % 10);
+            const int gForce = lrintf(osdGForce * 10);
+            tfp_sprintf(buff, "%01d.%01dG", gForce / 10, gForce % 10);
             break;
         }
 
@@ -778,10 +828,49 @@ static bool osdDrawSingleElement(uint8_t item)
             STATIC_ASSERT(OSD_FORMAT_MESSAGE_BUFFER_SIZE <= sizeof(buff), osd_warnings_size_exceeds_buffer_size);
 
             const batteryState_e batteryState = getBatteryState();
+            const timeUs_t currentTimeUs = micros();
+
+            static timeUs_t armingDisabledUpdateTimeUs;
+            static unsigned armingDisabledDisplayIndex;
+
+            CLR_BLINK(OSD_WARNINGS);
+
+            // Cycle through the arming disabled reasons
+            if (osdWarnGetState(OSD_WARNING_ARMING_DISABLE)) {
+                if (IS_RC_MODE_ACTIVE(BOXARM) && isArmingDisabled()) {
+                    const armingDisableFlags_e armSwitchOnlyFlag = 1 << (ARMING_DISABLE_FLAGS_COUNT - 1);
+                    armingDisableFlags_e flags = getArmingDisableFlags();
+
+                    // Remove the ARMSWITCH flag unless it's the only one
+                    if ((flags & armSwitchOnlyFlag) && (flags != armSwitchOnlyFlag)) {
+                        flags -= armSwitchOnlyFlag;
+                    }
+
+                    // Rotate to the next arming disabled reason after a 0.5 second time delay
+                    // or if the current flag is no longer set
+                    if ((currentTimeUs - armingDisabledUpdateTimeUs > 5e5) || !(flags & (1 << armingDisabledDisplayIndex))) {
+                        if (armingDisabledUpdateTimeUs == 0) {
+                            armingDisabledDisplayIndex = ARMING_DISABLE_FLAGS_COUNT - 1;
+                        }
+                        armingDisabledUpdateTimeUs = currentTimeUs;
+
+                        do {
+                            if (++armingDisabledDisplayIndex >= ARMING_DISABLE_FLAGS_COUNT) {
+                                armingDisabledDisplayIndex = 0;
+                            }
+                        } while (!(flags & (1 << armingDisabledDisplayIndex)));
+                    }
+
+                    osdFormatMessage(buff, OSD_FORMAT_MESSAGE_BUFFER_SIZE, armingDisableFlagNames[armingDisabledDisplayIndex]);
+                    break;
+                } else {
+                    armingDisabledUpdateTimeUs = 0;
+                }
+            }
 
 #ifdef USE_DSHOT
             if (isTryingToArm() && !ARMING_FLAG(ARMED)) {
-                int armingDelayTime = (getLastDshotBeaconCommandTimeUs() + DSHOT_BEACON_GUARD_DELAY_US - micros()) / 1e5;
+                int armingDelayTime = (getLastDshotBeaconCommandTimeUs() + DSHOT_BEACON_GUARD_DELAY_US - currentTimeUs) / 1e5;
                 if (armingDelayTime < 0) {
                     armingDelayTime = 0;
                 }
@@ -797,22 +886,31 @@ static bool osdDrawSingleElement(uint8_t item)
 #endif
             if (osdWarnGetState(OSD_WARNING_FAIL_SAFE) && failsafeIsActive()) {
                 osdFormatMessage(buff, OSD_FORMAT_MESSAGE_BUFFER_SIZE, "FAIL SAFE");
+                SET_BLINK(OSD_WARNINGS);
                 break;
             }
 
             if (osdWarnGetState(OSD_WARNING_BATTERY_CRITICAL) && batteryState == BATTERY_CRITICAL) {
                 osdFormatMessage(buff, OSD_FORMAT_MESSAGE_BUFFER_SIZE, " LAND NOW");
+                SET_BLINK(OSD_WARNINGS);
+                break;
+            }
+
+            // Show warning if in HEADFREE flight mode
+            if (FLIGHT_MODE(HEADFREE_MODE)) {
+                osdFormatMessage(buff, OSD_FORMAT_MESSAGE_BUFFER_SIZE, "HEADFREE");
+                SET_BLINK(OSD_WARNINGS);
                 break;
             }
 
 #ifdef USE_ADC_INTERNAL
-            uint8_t coreTemperature = getCoreTemperatureCelsius();
+            const int16_t coreTemperature = getCoreTemperatureCelsius();
             if (osdWarnGetState(OSD_WARNING_CORE_TEMPERATURE) && coreTemperature >= osdConfig()->core_temp_alarm) {
                 char coreTemperatureWarningMsg[OSD_FORMAT_MESSAGE_BUFFER_SIZE];
-                tfp_sprintf(coreTemperatureWarningMsg, "CORE: %3d%c", osdConvertTemperatureToSelectedUnit(getCoreTemperatureCelsius() * 10) / 10, osdGetTemperatureSymbolForSelectedUnit());
+                tfp_sprintf(coreTemperatureWarningMsg, "CORE: %3d%c", osdConvertTemperatureToSelectedUnit(coreTemperature), osdGetTemperatureSymbolForSelectedUnit());
 
                 osdFormatMessage(buff, OSD_FORMAT_MESSAGE_BUFFER_SIZE, coreTemperatureWarningMsg);
-
+                SET_BLINK(OSD_WARNINGS);
                 break;
             }
 #endif
@@ -863,31 +961,36 @@ static bool osdDrawSingleElement(uint8_t item)
 
                 if (escWarningCount > 0) {
                     osdFormatMessage(buff, OSD_FORMAT_MESSAGE_BUFFER_SIZE, escWarningMsg);
+                    SET_BLINK(OSD_WARNINGS);
                     break;
                 }
             }
 #endif
 
             // Warn when in flip over after crash mode
-            if (osdWarnGetState(OSD_WARNING_CRASH_FLIP) && isFlipOverAfterCrashMode()) {
+            if (osdWarnGetState(OSD_WARNING_CRASH_FLIP) && isFlipOverAfterCrashActive()) {
                 osdFormatMessage(buff, OSD_FORMAT_MESSAGE_BUFFER_SIZE, "CRASH FLIP");
                 break;
             }
 
-            // Show most severe reason for arming being disabled
-            if (osdWarnGetState(OSD_WARNING_ARMING_DISABLE) && IS_RC_MODE_ACTIVE(BOXARM) && isArmingDisabled()) {
-                const armingDisableFlags_e flags = getArmingDisableFlags();
-                for (int i = 0; i < ARMING_DISABLE_FLAGS_COUNT; i++) {
-                    if (flags & (1 << i)) {
-                        osdFormatMessage(buff, OSD_FORMAT_MESSAGE_BUFFER_SIZE, armingDisableFlagNames[i]);
-                        break;
-                    }
+#ifdef USE_LAUNCH_CONTROL
+            // Warn when in launch control mode
+            if (osdWarnGetState(OSD_WARNING_LAUNCH_CONTROL) && isLaunchControlActive()) {
+                if (sensors(SENSOR_ACC)) {
+                    char launchControlMsg[OSD_FORMAT_MESSAGE_BUFFER_SIZE];
+                    const int pitchAngle = constrain((attitude.raw[FD_PITCH] - accelerometerConfig()->accelerometerTrims.raw[FD_PITCH]) / 10, -90, 90);
+                    tfp_sprintf(launchControlMsg, "LAUNCH %d", pitchAngle);
+                    osdFormatMessage(buff, OSD_FORMAT_MESSAGE_BUFFER_SIZE, launchControlMsg);
+                } else {
+                    osdFormatMessage(buff, OSD_FORMAT_MESSAGE_BUFFER_SIZE, "LAUNCH");
                 }
                 break;
             }
+#endif
 
             if (osdWarnGetState(OSD_WARNING_BATTERY_WARNING) && batteryState == BATTERY_WARNING) {
                 osdFormatMessage(buff, OSD_FORMAT_MESSAGE_BUFFER_SIZE, "LOW BATTERY");
+                SET_BLINK(OSD_WARNINGS);
                 break;
             }
 
@@ -895,6 +998,7 @@ static bool osdDrawSingleElement(uint8_t item)
             // Show warning if rc smoothing hasn't initialized the filters
             if (osdWarnGetState(OSD_WARNING_RC_SMOOTHING) && ARMING_FLAG(ARMED) && !rcSmoothingInitializationComplete()) {
                 osdFormatMessage(buff, OSD_FORMAT_MESSAGE_BUFFER_SIZE, "RCSMOOTHING");
+                SET_BLINK(OSD_WARNINGS);
                 break;
             }
 #endif
@@ -976,7 +1080,7 @@ static bool osdDrawSingleElement(uint8_t item)
             tfp_sprintf(buff, "%c%03d", osdGetDirectionSymbolFromHeading(heading), heading);
             break;
         }
-
+#ifdef USE_VARIO
     case OSD_NUMERICAL_VARIO:
         {
             const int verticalSpeed = osdGetMetersToSelectedUnit(getEstimatedVario());
@@ -984,11 +1088,12 @@ static bool osdDrawSingleElement(uint8_t item)
             tfp_sprintf(buff, "%c%01d.%01d", directionSymbol, abs(verticalSpeed / 100), abs((verticalSpeed % 100) / 10));
             break;
         }
+#endif
 
 #ifdef USE_ESC_SENSOR
     case OSD_ESC_TMP:
         if (featureIsEnabled(FEATURE_ESC_SENSOR)) {
-            tfp_sprintf(buff, "%3d%c", osdConvertTemperatureToSelectedUnit(escDataCombined->temperature * 10) / 10, osdGetTemperatureSymbolForSelectedUnit());
+            tfp_sprintf(buff, "%3d%c", osdConvertTemperatureToSelectedUnit(escDataCombined->temperature), osdGetTemperatureSymbolForSelectedUnit());
         }
         break;
 
@@ -1015,7 +1120,7 @@ static bool osdDrawSingleElement(uint8_t item)
 
 #ifdef USE_ADC_INTERNAL
     case OSD_CORE_TEMPERATURE:
-        tfp_sprintf(buff, "%3d%c", osdConvertTemperatureToSelectedUnit(getCoreTemperatureCelsius() * 10) / 10, osdGetTemperatureSymbolForSelectedUnit());
+        tfp_sprintf(buff, "%3d%c", osdConvertTemperatureToSelectedUnit(getCoreTemperatureCelsius()), osdGetTemperatureSymbolForSelectedUnit());
         break;
 #endif
 
@@ -1049,7 +1154,16 @@ static void osdDrawElements(void)
         return;
     }
 
+    osdGForce = 0.0f;
     if (sensors(SENSOR_ACC)) {
+        // only calculate the G force if the element is visible or the stat is enabled
+        if (VISIBLE(osdConfig()->item_pos[OSD_G_FORCE]) || osdStatGetState(OSD_STAT_MAX_G_FORCE)) {
+            for (int axis = 0; axis < XYZ_AXIS_COUNT; axis++) {
+                const float a = accAverage[axis];
+                osdGForce += a * a;
+            }
+            osdGForce = sqrtf(osdGForce) * acc.dev.acc_1G_rec;
+        }
         osdDrawSingleElement(OSD_ARTIFICIAL_HORIZON);
         osdDrawSingleElement(OSD_G_FORCE);
     }
@@ -1067,6 +1181,7 @@ static void osdDrawElements(void)
         osdDrawSingleElement(OSD_GPS_LON);
         osdDrawSingleElement(OSD_HOME_DIST);
         osdDrawSingleElement(OSD_HOME_DIR);
+        osdDrawSingleElement(OSD_TOTAL_DIST);
     }
 #endif // GPS
 
@@ -1130,6 +1245,7 @@ void pgResetFn_osdConfig(osdConfig_t *osdConfig)
 
     osdConfig->ahMaxPitch = 20; // 20 degrees
     osdConfig->ahMaxRoll = 40; // 40 degrees
+    osdConfig->ahInvert = false;
 }
 
 static void osdDrawLogo(int x, int y)
@@ -1201,18 +1317,6 @@ void osdUpdateAlarms(void)
         SET_BLINK(OSD_RSSI_VALUE);
     } else {
         CLR_BLINK(OSD_RSSI_VALUE);
-    }
-
-    // Determine if the OSD_WARNINGS should blink
-    if (getBatteryState() != BATTERY_OK
-           && (osdWarnGetState(OSD_WARNING_BATTERY_CRITICAL) || osdWarnGetState(OSD_WARNING_BATTERY_WARNING))
-#ifdef USE_DSHOT
-           && (!isTryingToArm())
-#endif
-       ) {
-        SET_BLINK(OSD_WARNINGS);
-    } else {
-        CLR_BLINK(OSD_WARNINGS);
     }
 
     if (getBatteryState() == BATTERY_OK) {
@@ -1289,11 +1393,14 @@ static void osdResetStats(void)
     stats.max_current  = 0;
     stats.max_speed    = 0;
     stats.min_voltage  = 500;
-    stats.min_rssi     = 99;
+    stats.min_rssi     = 99; // percent
     stats.max_altitude = 0;
     stats.max_distance = 0;
     stats.armed_time   = 0;
     stats.max_g_force  = 0;
+    stats.max_esc_temp = 0;
+    stats.max_esc_rpm  = 0;
+    stats.min_link_quality = 99; // percent
 }
 
 static void osdUpdateStats(void)
@@ -1337,12 +1444,31 @@ static void osdUpdateStats(void)
         stats.max_g_force = osdGForce;
     }
 
+#ifdef USE_RX_LINK_QUALITY_INFO
+    value = rxGetLinkQualityPercent();
+    if (stats.min_link_quality > value) {
+        stats.min_link_quality = value;
+    }
+#endif
+
 #ifdef USE_GPS
     if (STATE(GPS_FIX) && STATE(GPS_FIX_HOME)) {
         value = GPS_distanceToHome;
 
         if (stats.max_distance < GPS_distanceToHome) {
             stats.max_distance = GPS_distanceToHome;
+        }
+    }
+#endif
+#ifdef USE_ESC_SENSOR
+    if (featureIsEnabled(FEATURE_ESC_SENSOR)) {
+        value = escDataCombined->temperature;
+        if (stats.max_esc_temp < value) {
+            stats.max_esc_temp = value;
+        }
+        value = calcEscRpm(escDataCombined->rpm);
+        if (stats.max_esc_rpm < value) {
+            stats.max_esc_rpm = value;
         }
     }
 #endif
@@ -1442,15 +1568,17 @@ static void osdShowStats(uint16_t endBatteryVoltage)
         osdDisplayStatisticLabel(top++, osdTimerSourceNames[OSD_TIMER_SRC(osdConfig()->timers[OSD_TIMER_2])], buff);
     }
 
-    if (osdStatGetState(OSD_STAT_MAX_SPEED) && STATE(GPS_FIX)) {
-        itoa(stats.max_speed, buff, 10);
+#ifdef USE_GPS
+    if (osdStatGetState(OSD_STAT_MAX_SPEED) && featureIsEnabled(FEATURE_GPS)) {
+        itoa(stats.max_speed, buff, 10);    
         osdDisplayStatisticLabel(top++, "MAX SPEED", buff);
     }
 
-    if (osdStatGetState(OSD_STAT_MAX_DISTANCE)) {
+    if (osdStatGetState(OSD_STAT_MAX_DISTANCE) && featureIsEnabled(FEATURE_GPS)) {
         tfp_sprintf(buff, "%d%c", osdGetMetersToSelectedUnit(stats.max_distance), osdGetMetersToSelectedUnitSymbol());
         osdDisplayStatisticLabel(top++, "MAX DISTANCE", buff);
     }
+#endif
 
     if (osdStatGetState(OSD_STAT_MIN_BATTERY)) {
         tfp_sprintf(buff, "%d.%1d%c", stats.min_voltage / 10, stats.min_voltage % 10, SYM_VOLT);
@@ -1503,10 +1631,39 @@ static void osdShowStats(uint16_t endBatteryVoltage)
     }
 #endif
 
-    if (osdStatGetState(OSD_STAT_MAX_G_FORCE)) {
-        tfp_sprintf(buff, "%01d.%01dG", (int)stats.max_g_force, (int)(stats.max_g_force * 10) % 10);
+    if (osdStatGetState(OSD_STAT_MAX_G_FORCE) && sensors(SENSOR_ACC)) {
+        const int gForce = lrintf(stats.max_g_force * 10);
+        tfp_sprintf(buff, "%01d.%01dG", gForce / 10, gForce % 10);
         osdDisplayStatisticLabel(top++, "MAX G-FORCE", buff);
     }
+
+#ifdef USE_ESC_SENSOR
+    if (osdStatGetState(OSD_STAT_MAX_ESC_TEMP)) {
+        tfp_sprintf(buff, "%3d%c", osdConvertTemperatureToSelectedUnit(stats.max_esc_temp), osdGetTemperatureSymbolForSelectedUnit());
+        osdDisplayStatisticLabel(top++, "MAX ESC TEMP", buff);
+    }
+
+    if (osdStatGetState(OSD_STAT_MAX_ESC_RPM)) {
+        itoa(stats.max_esc_rpm, buff, 10);
+        osdDisplayStatisticLabel(top++, "MAX ESC RPM", buff);
+    }
+#endif
+
+#ifdef USE_RX_LINK_QUALITY_INFO
+    if (osdStatGetState(OSD_STAT_MIN_LINK_QUALITY)) {
+        itoa(stats.min_link_quality, buff, 10);
+        strcat(buff, "%");
+        osdDisplayStatisticLabel(top++, "MIN LINK", buff);
+    }
+#endif
+
+#ifdef USE_GPS
+    if (osdStatGetState(OSD_STAT_TOTAL_DISTANCE) && featureIsEnabled(FEATURE_GPS)) {
+        const uint32_t distanceFlown = GPS_distanceFlownInCm / 100;
+        tfp_sprintf(buff, "%d%c", osdGetMetersToSelectedUnit(distanceFlown), osdGetMetersToSelectedUnitSymbol());
+        osdDisplayStatisticLabel(top++, "TOTAL DISTANCE", buff);
+    }
+#endif
 
 }
 
@@ -1533,6 +1690,7 @@ STATIC_UNIT_TESTED void osdRefresh(timeUs_t currentTimeUs)
             osdShowArmed();
             resumeRefreshAt = currentTimeUs + (REFRESH_1S / 2);
         } else if (isSomeStatEnabled()
+                   && !suppressStatsDisplay
                    && (!(getArmingDisableFlags() & ARMING_DISABLED_RUNAWAY_TAKEOFF)
                        || !VISIBLE(osdConfig()->item_pos[OSD_WARNINGS]))) { // suppress stats if runaway takeoff triggered disarm and WARNINGS element is visible
             osdStatsEnabled = true;
@@ -1664,4 +1822,8 @@ void osdUpdate(timeUs_t currentTimeUs)
 #endif
 }
 
+void osdSuppressStats(bool flag)
+{
+    suppressStatsDisplay = flag;
+}
 #endif // USE_OSD
