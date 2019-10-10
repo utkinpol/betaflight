@@ -20,6 +20,10 @@
 
 // pg/max7456
 
+#ifndef DEBUG_MODE
+#define DEBUG_MODE DEBUG_NONE
+#endif
+
 #ifdef USE_MAX7456
 #ifndef MAX7456_CLOCK_CONFIG_DEFAULT
 #define MAX7456_CLOCK_CONFIG_DEFAULT    MAX7456_CLOCK_CONFIG_OC
@@ -173,6 +177,19 @@
 
 #endif // I2C_FULL_RECONFIGURABILITY
 
+#ifndef I2C1_OVERCLOCK
+#define I2C1_OVERCLOCK false
+#endif
+#ifndef I2C2_OVERCLOCK
+#define I2C2_OVERCLOCK false
+#endif
+#ifndef I2C3_OVERCLOCK
+#define I2C3_OVERCLOCK false
+#endif
+#ifndef I2C4_OVERCLOCK
+#define I2C4_OVERCLOCK false
+#endif
+
 // Default values for internal pullup
 
 #if defined(USE_I2C_PULLUP)
@@ -236,6 +253,25 @@
 #define SPI3_MISO_PIN   PB4
 #define SPI3_MOSI_PIN   PB5
 #endif
+
+#ifndef SPI4_SCK_PIN
+#define SPI4_SCK_PIN    NONE
+#define SPI4_MISO_PIN   NONE
+#define SPI4_MOSI_PIN   NONE
+#endif
+
+#ifndef SPI5_SCK_PIN
+#define SPI5_SCK_PIN    NONE
+#define SPI5_MISO_PIN   NONE
+#define SPI5_MOSI_PIN   NONE
+#endif
+
+#ifndef SPI6_SCK_PIN
+#define SPI6_SCK_PIN    NONE
+#define SPI6_MISO_PIN   NONE
+#define SPI6_MOSI_PIN   NONE
+#endif
+
 #endif
 
 // Extracted from rx/rx.c and rx/rx.h
@@ -262,19 +298,42 @@
 #endif
 
 #ifdef USE_RX_SPI
+#if !defined(RX_SPI_INSTANCE)
+#define RX_SPI_INSTANCE NULL
+#endif
+
+#if !defined(RX_NSS_PIN)
+#define RX_NSS_PIN NONE
+#endif
+
 #ifndef RX_SPI_LED_PIN
 #define RX_SPI_LED_PIN NONE
 #endif
+
+#if !defined(RX_SPI_EXTI_PIN)
+#define RX_SPI_EXTI_PIN NONE
 #endif
 
-// F4 and F7 single gyro boards
-#if defined(USE_MULTI_GYRO) && !defined(GYRO_2_SPI_INSTANCE)
-#define GYRO_2_SPI_INSTANCE     GYRO_1_SPI_INSTANCE
-#define GYRO_2_CS_PIN           NONE
-#define GYRO_2_ALIGN            ALIGN_DEFAULT
-#define GYRO_2_EXTI_PIN         NONE
-#define ACC_2_ALIGN             ALIGN_DEFAULT
+#if !defined(RX_SPI_BIND_PIN)
+#define RX_SPI_BIND_PIN NONE
 #endif
+
+#if defined(USE_RX_CC2500)
+#if !defined(RX_CC2500_SPI_TX_EN_PIN)
+#define RX_CC2500_SPI_TX_EN_PIN NONE
+#endif
+
+#if !defined(RX_CC2500_SPI_LNA_EN_PIN)
+#define RX_CC2500_SPI_LNA_EN_PIN NONE
+#endif
+
+#if !defined(RX_CC2500_SPI_ANT_SEL_PIN)
+#define RX_CC2500_SPI_ANT_SEL_PIN NONE
+#endif
+#endif
+#endif
+
+// gyro hardware
 
 #if !defined(GYRO_1_SPI_INSTANCE)
 #define GYRO_1_SPI_INSTANCE     NULL
@@ -288,12 +347,11 @@
 #define GYRO_1_EXTI_PIN         NONE
 #endif
 
-#if !defined(GYRO_1_ALIGN)
-#define GYRO_1_ALIGN            ALIGN_DEFAULT
-#endif
-
-#if !defined(ACC_1_ALIGN)
-#define ACC_1_ALIGN             ALIGN_DEFAULT
+// F4 and F7 single gyro boards
+#if defined(USE_MULTI_GYRO) && !defined(GYRO_2_SPI_INSTANCE)
+#define GYRO_2_SPI_INSTANCE     NULL
+#define GYRO_2_CS_PIN           NONE
+#define GYRO_2_EXTI_PIN         NONE
 #endif
 
 #if defined(MPU_ADDRESS)
@@ -304,9 +362,26 @@
 
 #ifdef USE_MULTI_GYRO
 #define MAX_GYRODEV_COUNT 2
+#define MAX_ACCDEV_COUNT 2
 #else
 #define MAX_GYRODEV_COUNT 1
+#define MAX_ACCDEV_COUNT 1
 #endif
+
+// gyro alignments
+
+#if !defined(GYRO_1_ALIGN)
+#define GYRO_1_ALIGN            CW0_DEG
+#endif
+
+#if !defined(GYRO_2_ALIGN)
+#define GYRO_2_ALIGN            CW0_DEG
+#endif
+
+// Previously there was logic here to default GYRO_1_CUSTOM_ALIGN and GYRO_2_CUSTOM_ALIGN
+// to CUSTOM_ALIGN_CW0_DEG if they weren't defined in the target. The defaulting logic
+// has been moved to pg/gyrodev.c to set the custom alignment based on the sensor alignment
+// if a custom alignment is not applied in the target.
 
 #ifdef USE_VCP
 #ifndef USB_DETECT_PIN
@@ -346,6 +421,30 @@
 #ifdef USE_SDCARD_SDIO
 #ifndef SDCARD_SDIO_DMA_OPT
 #define SDCARD_SDIO_DMA_OPT (-1)
+#endif
+#ifndef SDIO_DEVICE
+#define SDIO_DEVICE SDIOINVALID
+#endif
+#ifndef SDIO_USE_4BIT
+#define SDIO_USE_4BIT false
+#endif
+#ifndef SDIO_CK_PIN
+#define SDIO_CK_PIN NONE
+#endif
+#ifndef SDIO_CMD_PIN
+#define SDIO_CMD_PIN NONE
+#endif
+#ifndef SDIO_D0_PIN
+#define SDIO_D0_PIN NONE
+#endif
+#ifndef SDIO_D1_PIN
+#define SDIO_D1_PIN NONE
+#endif
+#ifndef SDIO_D2_PIN
+#define SDIO_D2_PIN NONE
+#endif
+#ifndef SDIO_D3_PIN
+#define SDIO_D3_PIN NONE
 #endif
 #endif // USE_SDCARD_SDIO
 #endif // USE_SDCARD
@@ -401,10 +500,13 @@
 #ifndef BARO_I2C_INSTANCE
 #define BARO_I2C_INSTANCE       I2C_DEVICE
 #endif
+#ifndef BARO_XCLR_PIN
+#define BARO_XCLR_PIN           NONE
+#endif
 #endif
 
 #ifdef USE_ADC
-#if !defined(GENERIC_TARGET) && !defined(ADC_INSTANCE)
+#if !defined(USE_UNIFIED_TARGET) && !defined(ADC_INSTANCE)
 #define ADC_INSTANCE ADC1
 #ifndef ADC1_DMA_OPT
 #define ADC1_DMA_OPT 1
@@ -529,3 +631,43 @@
 #define UART8_RX_DMA_OPT (-1)
 #endif
 #endif
+
+#ifndef RTC6705_CS_PIN
+#define RTC6705_CS_PIN NONE
+#endif
+
+#ifndef RTC6705_POWER_PIN
+#define RTC6705_POWER_PIN NONE
+#endif
+
+#ifndef RTC6705_SPICLK_PIN
+#define RTC6705_SPICLK_PIN NONE
+#endif
+
+#ifndef RTC6705_SPI_MOSI_PIN
+#define RTC6705_SPI_MOSI_PIN NONE
+#endif
+
+#ifndef RTC6705_SPI_INSTANCE
+#define RTC6705_SPI_INSTANCE NULL
+#endif
+
+#if defined(USE_QUAD_MIXER_ONLY)
+#define MAX_SUPPORTED_MOTORS 4
+#define MAX_SUPPORTED_SERVOS 1
+#else
+#ifndef MAX_SUPPORTED_MOTORS
+#define MAX_SUPPORTED_MOTORS 8
+#endif
+#define MAX_SUPPORTED_SERVOS 8
+#endif
+
+#if defined(USE_DSHOT_BITBANG)
+#if !defined(DSHOT_BITBANG_DEFAULT)
+#define DSHOT_BITBANG_DEFAULT DSHOT_BITBANG_AUTO
+#endif
+
+#if !defined(DSHOT_BITBANGED_TIMER_DEFAULT)
+#define DSHOT_BITBANGED_TIMER_DEFAULT DSHOT_BITBANGED_TIMER_AUTO
+#endif
+#endif // USE_DSHOT_BITBANG

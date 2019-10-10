@@ -64,7 +64,6 @@
 
 #define GYRO_1_CS_PIN           PC4
 #define GYRO_1_SPI_INSTANCE     SPI1
-#define ACC_1_ALIGN             CW270_DEG
 #define GYRO_1_ALIGN            CW270_DEG
 
 #define USE_ACC
@@ -103,8 +102,6 @@
 #define USE_MAX7456
 #define MAX7456_SPI_INSTANCE    SPI3
 #define MAX7456_SPI_CS_PIN      PB14
-#define MAX7456_SPI_CLK         (SPI_CLOCK_STANDARD)
-#define MAX7456_RESTORE_CLK     (SPI_CLOCK_FAST)
 #define FLASH_CS_PIN            PB3
 #define FLASH_SPI_INSTANCE      SPI3
 
@@ -152,7 +149,11 @@
 #define USE_ESCSERIAL
 
 #if defined(FLYWOOF405)
-#define ESCSERIAL_TIMER_TX_PIN  PB8 
+#define ESCSERIAL_TIMER_TX_PIN  PB8
+#define USE_PINIO
+#define PINIO1_PIN              PB12 // VTX power switcher
+#define PINIO2_PIN              PB13 // 2xCamera switcher
+#define USE_PINIOBOX
 #else
 #define ESCSERIAL_TIMER_TX_PIN  PC7  // (HARDARE=0,PPM)
 #endif	
@@ -184,8 +185,6 @@
 #define SERIALRX_PROVIDER       SERIALRX_SBUS
 #define SERIALRX_UART           SERIAL_PORT_USART3
 
-#define USE_SERIAL_4WAY_BLHELI_INTERFACE
-
 #define TARGET_IO_PORTA 0xffff
 #define TARGET_IO_PORTB 0xffff
 #define TARGET_IO_PORTC 0xffff
@@ -196,7 +195,7 @@
 #define USED_TIMERS  ( TIM_N(2) | TIM_N(3) |  TIM_N(8))
 #elif defined(FLYWOOF405)
 #define USABLE_TIMER_CHANNEL_COUNT 11
-#define USED_TIMERS  ( TIM_N(2) | TIM_N(3) | TIM_N(4)|  TIM_N(8))
+#define USED_TIMERS  ( TIM_N(1) | TIM_N(2) | TIM_N(3)|  TIM_N(4)|  TIM_N(8)|  TIM_N(10))
 #else
 #define USABLE_TIMER_CHANNEL_COUNT 8
 #define USED_TIMERS  ( TIM_N(2) | TIM_N(3) | TIM_N(5)  |  TIM_N(8))

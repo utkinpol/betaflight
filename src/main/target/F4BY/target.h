@@ -45,7 +45,6 @@
 
 #define USE_ACC
 #define USE_ACC_SPI_MPU6000
-#define ACC_1_ALIGN             CW90_DEG
 
 #define USE_GYRO
 #define USE_GYRO_SPI_MPU6000
@@ -141,8 +140,6 @@
 #define SERIALRX_PROVIDER       SERIALRX_SBUS
 
 #define ENABLE_BLACKBOX_LOGGING_ON_SDCARD_BY_DEFAULT
-
-#define USE_SERIAL_4WAY_BLHELI_INTERFACE
 
 #define TARGET_IO_PORTA         0xffff
 #define TARGET_IO_PORTB         0xffff

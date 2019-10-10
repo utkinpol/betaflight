@@ -43,7 +43,6 @@
 #define USE_ACC
 #define USE_ACC_SPI_ICM20689
 #define USE_ACC_SPI_MPU6500
-#define ACC_1_ALIGN             CW90_DEG
 
 #define USE_GYRO
 #define USE_GYRO_SPI_ICM20689
@@ -109,8 +108,6 @@
 #define USE_MAX7456
 #define MAX7456_SPI_INSTANCE    SPI1
 #define MAX7456_SPI_CS_PIN      PA14
-#define MAX7456_SPI_CLK         (SPI_CLOCK_STANDARD) // 10MHz
-#define MAX7456_RESTORE_CLK     (SPI_CLOCK_FAST)
 
 // ADC inputs
 #define DEFAULT_VOLTAGE_METER_SOURCE VOLTAGE_METER_ADC
@@ -129,8 +126,6 @@
 #define USE_GYRO_FAST_KALMAN
 
 // Target IO and timers
-#define USE_SERIAL_4WAY_BLHELI_INTERFACE
-
 #define TARGET_IO_PORTA         0xffff
 #define TARGET_IO_PORTB         0xffff
 #define TARGET_IO_PORTC         0xffff

@@ -25,10 +25,16 @@
 
 #if defined(USE_VTX_COMMON)
 
+#include "cli/cli.h"
+
 #include "common/maths.h"
 #include "common/time.h"
 
 #include "drivers/vtx_common.h"
+#if defined(USE_VTX_RTC6705)
+#include "drivers/vtx_rtc6705.h"
+#endif
+#include "drivers/vtx_table.h"
 
 #include "fc/config.h"
 #include "fc/rc_modes.h"
@@ -36,26 +42,32 @@
 
 #include "flight/failsafe.h"
 
-#include "io/vtx.h"
-#include "io/vtx_string.h"
 #include "io/vtx_control.h"
-
-#include "interface/cli.h"
 
 #include "pg/pg.h"
 #include "pg/pg_ids.h"
 
+#include "vtx.h"
 
-PG_REGISTER_WITH_RESET_TEMPLATE(vtxSettingsConfig_t, vtxSettingsConfig, PG_VTX_SETTINGS_CONFIG, 0);
 
-PG_RESET_TEMPLATE(vtxSettingsConfig_t, vtxSettingsConfig,
-    .band = VTX_SETTINGS_DEFAULT_BAND,
-    .channel = VTX_SETTINGS_DEFAULT_CHANNEL,
-    .power = VTX_SETTINGS_DEFAULT_POWER,
-    .freq = VTX_SETTINGS_DEFAULT_FREQ,
-    .pitModeFreq = VTX_SETTINGS_DEFAULT_PITMODE_FREQ,
-    .lowPowerDisarm = VTX_LOW_POWER_DISARM_OFF,
-);
+PG_REGISTER_WITH_RESET_FN(vtxSettingsConfig_t, vtxSettingsConfig, PG_VTX_SETTINGS_CONFIG, 0);
+
+void pgResetFn_vtxSettingsConfig(vtxSettingsConfig_t *vtxSettingsConfig)
+{
+#ifdef USE_VTX_TABLE
+    vtxSettingsConfig->band = 0;
+    vtxSettingsConfig->channel = 0;
+    vtxSettingsConfig->power = 0;
+    vtxSettingsConfig->freq = 0;
+#else
+    vtxSettingsConfig->freq = VTX_TABLE_DEFAULT_FREQ;
+    vtxSettingsConfig->band = VTX_TABLE_DEFAULT_BAND;
+    vtxSettingsConfig->channel = VTX_TABLE_DEFAULT_CHANNEL;
+    vtxSettingsConfig->power = VTX_TABLE_DEFAULT_POWER;
+#endif
+    vtxSettingsConfig->pitModeFreq = VTX_TABLE_DEFAULT_PITMODE_FREQ;
+    vtxSettingsConfig->lowPowerDisarm = VTX_LOW_POWER_DISARM_OFF;
+}
 
 typedef enum {
     VTX_PARAM_POWER = 0,
@@ -69,8 +81,16 @@ void vtxInit(void)
 {
     bool settingsUpdated = false;
 
+    vtxDevice_t *vtxDevice = vtxCommonDevice();
+
+    if (!vtxDevice) {
+        // If a device is not registered, we don't have any table to refer.
+        // Don't manipulate settings and just return in this case.
+        return;
+    }
+
     // sync frequency in parameter group when band/channel are specified
-    const uint16_t freq = vtx58_Bandchan2Freq(vtxSettingsConfig()->band, vtxSettingsConfig()->channel);
+    const uint16_t freq = vtxCommonLookupFrequency(vtxDevice, vtxSettingsConfig()->band, vtxSettingsConfig()->channel);
     if (vtxSettingsConfig()->band && freq != vtxSettingsConfig()->freq) {
         vtxSettingsConfigMutable()->freq = freq;
         settingsUpdated = true;
@@ -79,7 +99,7 @@ void vtxInit(void)
 #if defined(VTX_SETTINGS_FREQCMD)
     // constrain pit mode frequency
     if (vtxSettingsConfig()->pitModeFreq) {
-        const uint16_t constrainedPitModeFreq = MAX(vtxSettingsConfig()->pitModeFreq, VTX_SETTINGS_MIN_USER_FREQ);
+        const uint16_t constrainedPitModeFreq = MAX(vtxSettingsConfig()->pitModeFreq, VTX_TABLE_MIN_USER_FREQ);
         if (constrainedPitModeFreq != vtxSettingsConfig()->pitModeFreq) {
             vtxSettingsConfigMutable()->pitModeFreq = constrainedPitModeFreq;
             settingsUpdated = true;
@@ -89,6 +109,27 @@ void vtxInit(void)
 
     if (settingsUpdated) {
         saveConfigAndNotify();
+    }
+}
+
+// Once refactoring for RTC6705 to handle pit mode properly and remove the requirement
+// for having a 0 value in the vtxtable power levels is completed then this function will
+// no longer be required and the VTX_TABLE_LOW_POWER_INDEX value can always be used.
+static uint8_t vtxGetMinimumPowerIndex(void)
+{
+    const vtxDevice_t *vtxDevice = vtxCommonDevice();
+    vtxDevType_e vtxType = VTXDEV_UNKNOWN;
+    if (vtxDevice) {
+        vtxType = vtxCommonGetDeviceType(vtxDevice);
+    }
+    switch (vtxType) {
+#if defined(USE_VTX_RTC6705)
+    case VTXDEV_RTC6705:
+        // special handling for rtc6705 which has the low power setting in index 2
+        return VTX_RTC6705_DEFAULT_POWER_INDEX;
+#endif
+    default:
+        return VTX_TABLE_LOW_POWER_INDEX;
     }
 }
 
@@ -107,14 +148,14 @@ STATIC_UNIT_TESTED vtxSettingsConfig_t vtxGetSettings(void)
     if (IS_RC_MODE_ACTIVE(BOXVTXPITMODE) && settings.pitModeFreq) {
         settings.band = 0;
         settings.freq = settings.pitModeFreq;
-        settings.power = VTX_SETTINGS_DEFAULT_POWER;
+        settings.power = vtxGetMinimumPowerIndex();
     }
 #endif
 
     if (!ARMING_FLAG(ARMED) && !failsafeIsActive() &&
         (settings.lowPowerDisarm == VTX_LOW_POWER_DISARM_ALWAYS ||
         (settings.lowPowerDisarm == VTX_LOW_POWER_DISARM_UNTIL_FIRST_ARM && !ARMING_FLAG(WAS_EVER_ARMED)))) {
-        settings.power = VTX_SETTINGS_DEFAULT_POWER;
+        settings.power = vtxGetMinimumPowerIndex();
     }
 
     return settings;
@@ -122,7 +163,7 @@ STATIC_UNIT_TESTED vtxSettingsConfig_t vtxGetSettings(void)
 
 static bool vtxProcessBandAndChannel(vtxDevice_t *vtxDevice)
 {
-    if(!ARMING_FLAG(ARMED)) {
+    if (!ARMING_FLAG(ARMED)) {
         uint8_t vtxBand;
         uint8_t vtxChan;
         if (vtxCommonGetBandAndChannel(vtxDevice, &vtxBand, &vtxChan)) {
@@ -139,7 +180,7 @@ static bool vtxProcessBandAndChannel(vtxDevice_t *vtxDevice)
 #if defined(VTX_SETTINGS_FREQCMD)
 static bool vtxProcessFrequency(vtxDevice_t *vtxDevice)
 {
-    if(!ARMING_FLAG(ARMED)) {
+    if (!ARMING_FLAG(ARMED)) {
         uint16_t vtxFreq;
         if (vtxCommonGetFrequency(vtxDevice, &vtxFreq)) {
             const vtxSettingsConfig_t settings = vtxGetSettings();
@@ -170,8 +211,8 @@ static bool vtxProcessPitMode(vtxDevice_t *vtxDevice)
 {
     static bool prevPmSwitchState = false;
 
-    uint8_t pitOnOff;
-    if (!ARMING_FLAG(ARMED) && vtxCommonGetPitMode(vtxDevice, &pitOnOff)) {
+    unsigned vtxStatus;
+    if (!ARMING_FLAG(ARMED) && vtxCommonGetStatus(vtxDevice, &vtxStatus)) {
         bool currPmSwitchState = IS_RC_MODE_ACTIVE(BOXVTXPITMODE);
 
         if (currPmSwitchState != prevPmSwitchState) {
@@ -183,13 +224,13 @@ static bool vtxProcessPitMode(vtxDevice_t *vtxDevice)
                     return false;
                 }
 #endif
-                if (!pitOnOff) {
+                if (!(vtxStatus & VTX_STATUS_PIT_MODE)) {
                     vtxCommonSetPitMode(vtxDevice, true);
 
                     return true;
                 }
             } else {
-                if (pitOnOff) {
+                if (vtxStatus & VTX_STATUS_PIT_MODE) {
                     vtxCommonSetPitMode(vtxDevice, false);
 
                     return true;

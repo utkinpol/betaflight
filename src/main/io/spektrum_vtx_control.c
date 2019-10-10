@@ -26,7 +26,6 @@
 #include "fc/config.h"
 #include "drivers/vtx_common.h"
 #include "io/vtx.h"
-#include "io/vtx_string.h"
 
 #include "io/spektrum_vtx_control.h"
 
@@ -200,7 +199,7 @@ void spektrumVtxControl(void)
         if ((prevSettings.band != band) || (prevSettings.channel != channel)) {
             newSettings.band    = band;
             newSettings.channel = channel;
-            newSettings.freq    = vtx58_Bandchan2Freq(band, channel);
+            newSettings.freq    = vtxCommonLookupFrequency(vtxDevice, band, channel);
         }
 #endif
         // Seems to be no unified internal VTX API standard for power levels/indexes, VTX device brand specific.
@@ -209,9 +208,9 @@ void spektrumVtxControl(void)
             newSettings.power   = power;
         }
         // Everyone seems to agree on what PIT ON/OFF means
-        uint8_t currentPitMode = 0;
-        if (vtxCommonGetPitMode(vtxDevice, &currentPitMode)) {
-            if (currentPitMode != vtx.pitMode) {
+        unsigned vtxCurrentStatus;
+        if (vtxCommonGetStatus(vtxDevice, &vtxCurrentStatus)) {
+            if ((vtxCurrentStatus & VTX_STATUS_PIT_MODE) != vtx.pitMode) {
                 vtxCommonSetPitMode(vtxDevice, vtx.pitMode);
             }
         }

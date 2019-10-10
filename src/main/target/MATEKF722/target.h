@@ -58,8 +58,6 @@
 #define USE_ACC
 #define USE_ACC_SPI_MPU6500
 #define USE_ACC_SPI_ICM20689
-#define ACC_1_ALIGN             CW180_DEG
-//#define ACC_1_ALIGN             CW90_DEG // XXX has to be post-flash configured
 
 // *************** Baro **************************
 #define USE_I2C
@@ -153,7 +151,6 @@
 #define CURRENT_METER_SCALE_DEFAULT 179
 
 #define USE_ESCSERIAL
-#define USE_SERIAL_4WAY_BLHELI_INTERFACE
 
 #define TARGET_IO_PORTA         0xffff
 #define TARGET_IO_PORTB         0xffff

@@ -47,7 +47,6 @@
 
 #define USE_ACC
 #define USE_ACC_SPI_MPU6000
-#define ACC_1_ALIGN             CW180_DEG_FLIP
 
 
 #if USB_VCP_ENABLED
@@ -118,8 +117,6 @@
 #define DEFAULT_RX_FEATURE      FEATURE_RX_SERIAL
 #define DEFAULT_FEATURES        ( FEATURE_TELEMETRY )
 #define USE_TARGET_CONFIG
-
-#define USE_SERIAL_4WAY_BLHELI_INTERFACE
 
 #define TARGET_IO_PORTA         0xffff
 #define TARGET_IO_PORTB         0xffff

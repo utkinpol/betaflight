@@ -53,7 +53,6 @@
 #define USE_ACC
 #define USE_ACC_SPI_MPU6000
 #define USE_ACC_SPI_MPU6500
-#define ACC_1_ALIGN             CW180_DEG
 
 // *************** Baro **************************
 #define USE_I2C
@@ -111,7 +110,6 @@
 //#define RSSI_ADC_PIN            PA0
 
 #define USE_ESCSERIAL
-#define USE_SERIAL_4WAY_BLHELI_INTERFACE
 
 #define DEFAULT_FEATURES                (FEATURE_OSD | FEATURE_TELEMETRY | FEATURE_SOFTSERIAL)
 #define DEFAULT_VOLTAGE_METER_SOURCE    VOLTAGE_METER_ADC

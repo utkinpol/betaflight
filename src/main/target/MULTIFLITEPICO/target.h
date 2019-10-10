@@ -42,7 +42,6 @@
 
 #define USE_ACC
 #define USE_ACC_MPU6050
-#define ACC_1_ALIGN             CW90_DEG
 
 #define USE_BARO
 #define USE_BARO_MS5611
@@ -129,8 +128,6 @@
 #define RX_CHANNELS_TAER
 
 #define BINDPLUG_PIN            PA13
-
-#define USE_SERIAL_4WAY_BLHELI_INTERFACE
 
 // IO - stm32f303cc in 48pin package
 #define TARGET_IO_PORTA         0xffff

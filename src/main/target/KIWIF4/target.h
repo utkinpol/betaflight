@@ -57,11 +57,11 @@
 #define GYRO_1_SPI_INSTANCE     SPI1
 
 #define USE_GYRO
+#define USE_ACC
 
 #define USE_GYRO_SPI_MPU6000
 #define GYRO_1_ALIGN            CW180_DEG
 #define USE_ACC_SPI_MPU6000
-#define ACC_1_ALIGN             CW180_DEG
 
 #if defined(KIWIF4) || defined(KIWIF4V2)
 #define USE_MAX7456
@@ -159,8 +159,6 @@
 #define DEFAULT_RX_FEATURE      FEATURE_RX_SERIAL
 #define SERIALRX_PROVIDER       SERIALRX_SBUS
 #define SERIALRX_UART           SERIAL_PORT_USART1
-
-#define USE_SERIAL_4WAY_BLHELI_INTERFACE
 
 #define TARGET_IO_PORTA         0xffff
 #define TARGET_IO_PORTB         0xffff

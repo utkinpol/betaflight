@@ -38,6 +38,8 @@
 
 #include "rx/rx.h"
 
+#include "pg/rcdevice.h"
+
 #ifdef USE_RCDEVICE
 
 #define IS_HI(X) (rcData[X] > FIVE_KEY_CABLE_JOYSTICK_MAX)
@@ -55,7 +57,7 @@ bool waitingDeviceResponse = false;
 
 static bool isFeatureSupported(uint8_t feature)
 {
-    if (camDevice->info.features & feature) {
+    if (camDevice->info.features & feature || rcdeviceConfig()->feature & feature) {
         return true;
     }
 
@@ -65,15 +67,6 @@ static bool isFeatureSupported(uint8_t feature)
 bool rcdeviceIsEnabled(void)
 {
     return camDevice->serialPort != NULL;
-}
-
-static bool rcdeviceIs5KeyEnabled(void)
-{
-    if (camDevice->serialPort != NULL && isFeatureSupported(RCDEVICE_PROTOCOL_FEATURE_SIMULATE_5_KEY_OSD_CABLE)) {
-        return true;
-    }
-
-    return false;
 }
 
 static void rcdeviceCameraControlProcess(void)
@@ -96,7 +89,7 @@ static void rcdeviceCameraControlProcess(void)
                     // avoid display wifi page when arming, in the next firmware(>2.0) of rcsplit we have change the wifi page logic:
                     // when the wifi was turn on it won't turn off the analog video output, 
                     // and just put a wifi indicator on the right top of the video output. here is for the old split firmware
-                    if (!ARMING_FLAG(ARMED) && ((getArmingDisableFlags() & ARMING_DISABLED_RUNAWAY_TAKEOFF) == 0)) {
+                    if (!ARMING_FLAG(ARMED) && !(getArmingDisableFlags() & (ARMING_DISABLED_RUNAWAY_TAKEOFF | ARMING_DISABLED_CRASH_DETECTED))) {
                         behavior = RCDEVICE_PROTOCOL_CAM_CTRL_SIMULATE_WIFI_BTN;
                     }
                 }
@@ -109,7 +102,7 @@ static void rcdeviceCameraControlProcess(void)
             case BOXCAMERA3:
                 if (isFeatureSupported(RCDEVICE_PROTOCOL_FEATURE_CHANGE_MODE)) {
                     // avoid change camera mode when arming
-                    if (!ARMING_FLAG(ARMED) && ((getArmingDisableFlags() & ARMING_DISABLED_RUNAWAY_TAKEOFF) == 0)) {
+                    if (!ARMING_FLAG(ARMED) && !(getArmingDisableFlags() & (ARMING_DISABLED_RUNAWAY_TAKEOFF | ARMING_DISABLED_CRASH_DETECTED))) {
                         behavior = RCDEVICE_PROTOCOL_CAM_CTRL_CHANGE_MODE;
                     }
                 }
@@ -243,7 +236,7 @@ static void rcdevice5KeySimulationProcess(timeUs_t currentTimeUs)
     }
 #endif
 
-    if (ARMING_FLAG(ARMED) || getArmingDisableFlags() & ARMING_DISABLED_RUNAWAY_TAKEOFF) {
+    if (ARMING_FLAG(ARMED) || (getArmingDisableFlags() & (ARMING_DISABLED_RUNAWAY_TAKEOFF | ARMING_DISABLED_CRASH_DETECTED))) {
         return;
     }
 
@@ -297,9 +290,7 @@ void rcdeviceUpdate(timeUs_t currentTimeUs)
 
     rcdeviceCameraControlProcess();
 
-    if (rcdeviceIs5KeyEnabled()) {
-        rcdevice5KeySimulationProcess(currentTimeUs);
-    }
+    rcdevice5KeySimulationProcess(currentTimeUs);
 }
 
 void rcdeviceInit(void)

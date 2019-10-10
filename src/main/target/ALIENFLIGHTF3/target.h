@@ -55,7 +55,6 @@
 #define USE_ACC_MPU6050
 #define USE_ACC_SPI_MPU6500
 
-#define ACC_1_ALIGN             CW270_DEG
 
 // No baro support.
 //#define USE_BARO
@@ -118,8 +117,6 @@
 #define DEFAULT_FEATURES        FEATURE_MOTOR_STOP
 #define DEFAULT_RX_FEATURE      FEATURE_RX_SERIAL
 #define SERIALRX_UART           SERIAL_PORT_USART2
-
-#define USE_SERIAL_4WAY_BLHELI_INTERFACE
 
 // IO - stm32f303cc in 48pin package
 #define TARGET_IO_PORTA         0xffff

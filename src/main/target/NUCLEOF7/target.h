@@ -38,7 +38,6 @@
 #define USE_ACC
 #define USE_FAKE_ACC
 #define USE_ACC_MPU6050
-#define ACC_1_ALIGN       CW270_DEG
 
 #define USE_GYRO
 #define USE_FAKE_GYRO
@@ -62,6 +61,9 @@
 #define USE_BARO
 #define USE_FAKE_BARO
 #define USE_BARO_MS5611
+#define USE_BARO_SPI_BMP388
+#define BARO_SPI_INSTANCE       SPI1
+#define BARO_CS_PIN             SPI1_NSS_PIN
 
 #define USABLE_TIMER_CHANNEL_COUNT 11
 
@@ -146,8 +148,6 @@
 
 #define DEFAULT_RX_FEATURE      FEATURE_RX_SERIAL
 #define SERIALRX_PROVIDER       SERIALRX_SBUS
-
-#define USE_SERIAL_4WAY_BLHELI_INTERFACE
 
 #define TARGET_IO_PORTA 0xffff
 #define TARGET_IO_PORTB 0xffff

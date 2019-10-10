@@ -34,37 +34,38 @@
 #include "common/maths.h"
 
 #include "config/feature.h"
-#include "pg/pg.h"
-#include "pg/pg_ids.h"
-#include "pg/rx.h"
-
-#include "cms/cms.h"
 
 #include "drivers/camera_control.h"
 
 #include "fc/config.h"
 #include "fc/core.h"
-#include "fc/rc_controls.h"
 #include "fc/rc.h"
 #include "fc/runtime_config.h"
 
-#include "io/gps.h"
-#include "io/beeper.h"
-#include "io/motors.h"
-#include "io/vtx_control.h"
-#include "io/dashboard.h"
-
-#include "sensors/barometer.h"
-#include "sensors/battery.h"
-#include "sensors/sensors.h"
-#include "sensors/gyro.h"
-#include "sensors/acceleration.h"
-
-#include "rx/rx.h"
-#include "scheduler/scheduler.h"
-
 #include "flight/pid.h"
 #include "flight/failsafe.h"
+
+#include "io/beeper.h"
+#include "io/dashboard.h"
+#include "io/gps.h"
+#include "io/motors.h"
+#include "io/vtx_control.h"
+
+#include "pg/pg.h"
+#include "pg/pg_ids.h"
+#include "pg/rx.h"
+
+#include "rx/rx.h"
+
+#include "scheduler/scheduler.h"
+
+#include "sensors/acceleration.h"
+#include "sensors/barometer.h"
+#include "sensors/battery.h"
+#include "sensors/gyro.h"
+#include "sensors/sensors.h"
+
+#include "rc_controls.h"
 
 // true if arming is done via the sticks (as opposed to a switch)
 static bool isUsingSticksToArm = true;
@@ -106,7 +107,7 @@ bool isUsingSticksForArming(void)
 
 bool areSticksInApModePosition(uint16_t ap_mode)
 {
-    return ABS(rcCommand[ROLL]) < ap_mode && ABS(rcCommand[PITCH]) < ap_mode;
+    return fabsf(rcCommand[ROLL]) < ap_mode && fabsf(rcCommand[PITCH]) < ap_mode;
 }
 
 throttleStatus_e calculateThrottleStatus(void)
@@ -133,6 +134,7 @@ throttleStatus_e calculateThrottleStatus(void)
     rcDelayMs -= (t); \
     doNotRepeat = false; \
 }
+
 void processRcStickPositions()
 {
     // time the sticks are maintained
@@ -142,12 +144,6 @@ void processRcStickPositions()
     // an extra guard for disarming through switch to prevent that one frame can disarm it
     static uint8_t rcDisarmTicks;
     static bool doNotRepeat;
-
-#ifdef USE_CMS
-    if (cmsInMenu) {
-        return;
-    }
-#endif
 
     // checking sticks positions
     uint8_t stTmp = 0;
@@ -205,6 +201,7 @@ void processRcStickPositions()
                 // before they're able to rearm
                 unsetArmingDisabled(ARMING_DISABLED_RUNAWAY_TAKEOFF);
 #endif
+                unsetArmingDisabled(ARMING_DISABLED_CRASH_DETECTED);
             }
         }
         return;
@@ -227,7 +224,7 @@ void processRcStickPositions()
         resetTryingToArm();
     }
 
-    if (ARMING_FLAG(ARMED) || doNotRepeat || rcDelayMs <= STICK_DELAY_MS || (getArmingDisableFlags() & ARMING_DISABLED_RUNAWAY_TAKEOFF)) {
+    if (ARMING_FLAG(ARMED) || doNotRepeat || rcDelayMs <= STICK_DELAY_MS || (getArmingDisableFlags() & (ARMING_DISABLED_RUNAWAY_TAKEOFF | ARMING_DISABLED_CRASH_DETECTED))) {
         return;
     }
     doNotRepeat = true;
@@ -278,12 +275,13 @@ void processRcStickPositions()
         saveConfigAndNotify();
     }
 
+#ifdef USE_ACC
     if (rcSticks == THR_HI + YAW_LO + PIT_LO + ROL_CE) {
         // Calibrating Acc
         accSetCalibrationCycles(CALIBRATING_ACC_CYCLES);
         return;
     }
-
+#endif
 
     if (rcSticks == THR_HI + YAW_HI + PIT_LO + ROL_CE) {
         // Calibrating Mag
@@ -317,8 +315,13 @@ void processRcStickPositions()
             break;
         }
         if (shouldApplyRollAndPitchTrimDelta) {
-            applyAndSaveAccelerometerTrimsDelta(&accelerometerTrimsDelta);
+#if defined(USE_ACC)
+            applyAccelerometerTrimsDelta(&accelerometerTrimsDelta);
+#endif
+            saveConfigAndNotify();
+
             repeatAfter(STICK_AUTOREPEAT_MS);
+
             return;
         }
     } else {
@@ -392,5 +395,6 @@ int32_t getRcStickDeflection(int32_t axis, uint16_t midrc) {
 
 void rcControlsInit(void)
 {
+    analyzeModeActivationConditions();
     isUsingSticksToArm = !isModeActivationConditionPresent(BOXARM);
 }

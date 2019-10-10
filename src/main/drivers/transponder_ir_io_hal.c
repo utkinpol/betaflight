@@ -26,29 +26,37 @@
 
 #ifdef USE_TRANSPONDER
 
-#include "dma.h"
-#include "drivers/nvic.h"
+#include "drivers/dma.h"
+#include "drivers/dma_reqmap.h"
 #include "drivers/io.h"
-#include "rcc.h"
-#include "timer.h"
+#include "drivers/nvic.h"
+#include "drivers/rcc.h"
+#include "drivers/timer.h"
+#include "drivers/transponder_ir_arcitimer.h"
+#include "drivers/transponder_ir_erlt.h"
+#include "drivers/transponder_ir_ilap.h"
 
 #include "transponder_ir.h"
-#include "drivers/transponder_ir_arcitimer.h"
-#include "drivers/transponder_ir_ilap.h"
-#include "drivers/transponder_ir_erlt.h"
+
+typedef DMA_Stream_TypeDef dmaStream_t;
 
 volatile uint8_t transponderIrDataTransferInProgress = 0;
-
 
 static IO_t transponderIO = IO_NONE;
 static TIM_HandleTypeDef TimHandle;
 static uint16_t timerChannel = 0;
+static uint8_t output;
+static uint8_t alternateFunction;
 
-#if !defined(STM32F7)
+#if !(defined(STM32F7) || defined(STM32H7))
 #error "Transponder (via HAL) not supported on this MCU."
 #endif
 
+#ifdef STM32H7
+DMA_RAM transponder_t transponder;
+#else
 transponder_t transponder;
+#endif
 bool transponderInitialised = false;
 
 static void TRANSPONDER_DMA_IRQHandler(dmaChannelDescriptor_t* descriptor)
@@ -64,11 +72,27 @@ void transponderIrHardwareInit(ioTag_t ioTag, transponder_t *transponder)
         return;
     }
 
-    const timerHardware_t *timerHardware = timerGetByTag(ioTag);
+    const timerHardware_t *timerHardware = timerAllocate(ioTag, OWNER_TRANSPONDER, 0);
     TIM_TypeDef *timer = timerHardware->tim;
     timerChannel = timerHardware->channel;
+    output = timerHardware->output;
+    alternateFunction = timerHardware->alternateFunction;
 
-    if (timerHardware->dmaRef == NULL) {
+#if defined(USE_DMA_SPEC)
+    const dmaChannelSpec_t *dmaSpec = dmaGetChannelSpecByTimer(timerHardware);
+
+    if (dmaSpec == NULL) {
+        return;
+    }
+
+    dmaResource_t *dmaRef = dmaSpec->ref;
+    uint32_t dmaChannel = dmaSpec->channel;
+#else
+    dmaResource_t *dmaRef = timerHardware->dmaRef;
+    uint32_t dmaChannel = timerHardware->dmaChannel;
+#endif
+
+    if (dmaRef == NULL) {
         return;
     }
 
@@ -99,9 +123,14 @@ void transponderIrHardwareInit(ioTag_t ioTag, transponder_t *transponder)
     IOConfigGPIOAF(transponderIO, IO_CONFIG(GPIO_MODE_AF_PP, GPIO_SPEED_FREQ_VERY_HIGH, GPIO_PULLDOWN), timerHardware->alternateFunction);
 
     __DMA1_CLK_ENABLE();
+    __DMA2_CLK_ENABLE();
 
     /* Set the parameters to be configured */
-    hdma_tim.Init.Channel = timerHardware->dmaChannel;
+#ifdef STM32H7
+    hdma_tim.Init.Request = dmaChannel;
+#else
+    hdma_tim.Init.Channel = dmaChannel;
+#endif
     hdma_tim.Init.Direction = DMA_MEMORY_TO_PERIPH;
     hdma_tim.Init.PeriphInc = DMA_PINC_DISABLE;
     hdma_tim.Init.MemInc = DMA_MINC_ENABLE;
@@ -115,15 +144,15 @@ void transponderIrHardwareInit(ioTag_t ioTag, transponder_t *transponder)
     hdma_tim.Init.PeriphBurst = DMA_PBURST_SINGLE;
 
     /* Set hdma_tim instance */
-    hdma_tim.Instance = timerHardware->dmaRef;
+    hdma_tim.Instance = (DMA_ARCH_TYPE *)dmaRef;
 
     uint16_t dmaIndex = timerDmaIndex(timerChannel);
 
     /* Link hdma_tim to hdma[x] (channelx) */
     __HAL_LINKDMA(&TimHandle, hdma[dmaIndex], hdma_tim);
 
-    dmaInit(timerHardware->dmaIrqHandler, OWNER_TRANSPONDER, 0);
-    dmaSetHandler(timerHardware->dmaIrqHandler, TRANSPONDER_DMA_IRQHandler, NVIC_PRIO_TRANSPONDER_DMA, dmaIndex);
+    dmaInit(dmaGetIdentifier(dmaRef), OWNER_TRANSPONDER, 0);
+    dmaSetHandler(dmaGetIdentifier(dmaRef), TRANSPONDER_DMA_IRQHandler, NVIC_PRIO_TRANSPONDER_DMA, dmaIndex);
 
     /* Initialize TIMx DMA handle */
     if (HAL_DMA_Init(TimHandle.hdma[dmaIndex]) != HAL_OK) {
@@ -193,14 +222,16 @@ bool isTransponderIrReady(void)
     return !transponderIrDataTransferInProgress;
 }
 
-static uint16_t dmaBufferOffset;
-
 void transponderIrWaitForTransmitComplete(void)
 {
+#ifdef DEBUG
     static uint32_t waitCounter = 0;
+#endif
 
     while (transponderIrDataTransferInProgress) {
+#ifdef DEBUG
         waitCounter++;
+#endif
     }
 }
 
@@ -235,7 +266,7 @@ void transponderIrDisable(void)
     }
 
     TIM_DMACmd(&TimHandle, timerChannel, DISABLE);
-    if (timerHardware->output & TIMER_OUTPUT_N_CHANNEL) {
+    if (output & TIMER_OUTPUT_N_CHANNEL) {
         HAL_TIMEx_PWMN_Stop(&TimHandle, timerChannel);
     } else {
         HAL_TIM_PWM_Stop(&TimHandle, timerChannel);
@@ -250,14 +281,12 @@ void transponderIrDisable(void)
     IOLo(transponderIO);
 #endif
 
-    IOConfigGPIOAF(transponderIO, IO_CONFIG(GPIO_MODE_AF_PP, GPIO_SPEED_FREQ_VERY_HIGH, GPIO_PULLDOWN), timerHardware->alternateFunction);
+    IOConfigGPIOAF(transponderIO, IO_CONFIG(GPIO_MODE_AF_PP, GPIO_SPEED_FREQ_VERY_HIGH, GPIO_PULLDOWN), alternateFunction);
 }
 
 void transponderIrTransmit(void)
 {
     transponderIrWaitForTransmitComplete();
-
-    dmaBufferOffset = 0;
 
     transponderIrDataTransferInProgress = 1;
     transponderIrDMAEnable(&transponder);

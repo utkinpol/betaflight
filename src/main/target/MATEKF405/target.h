@@ -60,8 +60,6 @@
 #define USE_ACC
 #define USE_ACC_SPI_MPU6000
 #define USE_ACC_SPI_MPU6500
-#define ACC_1_ALIGN             CW270_DEG
-//#define ACC_1_ALIGN             CW180_DEG // XXX MPU6500 align, must be configured after flashing
 
 #define USE_MAG
 #define USE_MAG_HMC5883
@@ -170,7 +168,6 @@
 
 #define USE_ESCSERIAL
 #define ESCSERIAL_TIMER_TX_PIN PA3
-#define USE_SERIAL_4WAY_BLHELI_INTERFACE
 
 #define TARGET_IO_PORTA         0xffff
 #define TARGET_IO_PORTB         0xffff

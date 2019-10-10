@@ -50,7 +50,6 @@
 #define GYRO_1_SPI_INSTANCE     SPI2
 
 #define GYRO_1_ALIGN            CW180_DEG
-#define ACC_1_ALIGN             CW180_DEG
 
 //#define USE_BARO
 //#define USE_BARO_MS5611
@@ -99,8 +98,6 @@
 #define VBAT_ADC_PIN            PA5
 //#define CURRENT_METER_ADC_PIN   PA5
 #define RSSI_ADC_PIN            PB2
-
-#define USE_SERIAL_4WAY_BLHELI_INTERFACE
 
 // IO - stm32f303cc in 48pin package
 #define TARGET_IO_PORTA         0xffff

@@ -47,10 +47,10 @@ extern "C" {
     #include "fc/config.h"
     #include "flight/imu.h"
 
-    #include "interface/msp.h"
-
     #include "io/serial.h"
     #include "io/gps.h"
+
+    #include "msp/msp.h"
 
     #include "rx/rx.h"
     #include "rx/crsf.h"
@@ -63,6 +63,7 @@ extern "C" {
     #include "telemetry/smartport.h"
     #include "sensors/acceleration.h"
 
+    rssiSource_e rssiSource;
     bool handleMspFrame(uint8_t *frameStart, int frameLength, uint8_t *skipsBeforeResponse);
     bool sendMspReply(uint8_t payloadSize, mspResponseFnPtr responseFn);
     uint8_t sbufReadU8(sbuf_t *src);

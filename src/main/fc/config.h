@@ -27,8 +27,23 @@
 
 #define MAX_NAME_LENGTH 16u
 
+#define MAX_PROFILE_NAME_LENGTH    8u
+
+typedef enum {
+    CONFIGURATION_STATE_DEFAULTS_BARE = 0,
+    CONFIGURATION_STATE_DEFAULTS_CUSTOM,
+    CONFIGURATION_STATE_CONFIGURED,
+} configurationState_e;
+
+typedef enum {
+    SCHEDULER_OPTIMIZE_RATE_OFF = 0,
+    SCHEDULER_OPTIMIZE_RATE_ON,
+    SCHEDULER_OPTIMIZE_RATE_AUTO,
+} schedulerOptimizeRate_e;
+
 typedef struct pilotConfig_s {
     char name[MAX_NAME_LENGTH + 1];
+    char displayName[MAX_NAME_LENGTH + 1];
 } pilotConfig_t;
 
 PG_DECLARE(pilotConfig_t, pilotConfig);
@@ -43,7 +58,8 @@ typedef struct systemConfig_s {
     uint8_t powerOnArmingGraceTime; // in seconds
     char boardIdentifier[sizeof(TARGET_BOARD_IDENTIFIER) + 1];
     uint8_t hseMhz; // Not used for non-F4 targets
-    uint8_t configured;
+    uint8_t configurationState; // The state of the configuration (defaults / configured)
+    uint8_t schedulerOptimizeRate;
 } systemConfig_t;
 
 PG_DECLARE(systemConfig_t, systemConfig);
@@ -52,17 +68,22 @@ struct pidProfile_s;
 extern struct pidProfile_s *currentPidProfile;
 
 void initEEPROM(void);
-void resetEEPROM(void);
+bool resetEEPROM(bool useCustomDefaults);
 bool readEEPROM(void);
 void writeEEPROM(void);
 void writeEEPROMWithFeatures(uint32_t features);
+void writeUnmodifiedConfigToEEPROM(void);
 void ensureEEPROMStructureIsValid(void);
 
 void saveConfigAndNotify(void);
 void validateAndFixGyroConfig(void);
 
+void setConfigDirty(void);
+bool isConfigDirty(void);
+
 uint8_t getCurrentPidProfileIndex(void);
 void changePidProfile(uint8_t pidProfileIndex);
+void changePidProfileFromCellCount(uint8_t cellCount);
 struct pidProfile_s;
 void resetPidProfile(struct pidProfile_s *profile);
 
@@ -73,8 +94,10 @@ bool canSoftwareSerialBeUsed(void);
 
 uint16_t getCurrentMinthrottle(void);
 
-void resetConfigs(void);
+void resetConfig(void);
 void targetConfiguration(void);
 void targetValidateConfiguration(void);
 
 bool isSystemConfigured(void);
+void setRebootRequired(void);
+bool getRebootRequired(void);

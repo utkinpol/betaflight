@@ -39,7 +39,6 @@
 
 #define USE_ACC
 #define USE_ACC_MPU6050
-#define ACC_1_ALIGN             CW0_DEG_FLIP
 
 #define USE_FLASHFS
 #define USE_FLASH_M25P16
@@ -94,8 +93,6 @@
 
 #define DEFAULT_RX_FEATURE      FEATURE_RX_SERIAL
 #define SERIALRX_UART           SERIAL_PORT_USART2
-
-#define USE_SERIAL_4WAY_BLHELI_INTERFACE
 
 // IO - stm32f303cc in 48pin package
 #define TARGET_IO_PORTA         0xffff

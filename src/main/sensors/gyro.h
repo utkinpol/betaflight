@@ -24,30 +24,70 @@
 #include "common/filter.h"
 #include "common/time.h"
 
+#include "drivers/accgyro/accgyro.h"
 #include "drivers/bus.h"
 #include "drivers/sensor.h"
 
+#ifdef USE_GYRO_DATA_ANALYSE
+#include "flight/gyroanalyse.h"
+#endif
+
 #include "pg/pg.h"
+
+#define FILTER_FREQUENCY_MAX 4000 // maximum frequency for filter cutoffs (nyquist limit of 8K max sampling)
+
+typedef union gyroLowpassFilter_u {
+    pt1Filter_t pt1FilterState;
+    biquadFilter_t biquadFilterState;
+} gyroLowpassFilter_t;
 
 typedef struct gyro_s {
     uint32_t targetLooptime;
-    float gyroADCf[XYZ_AXIS_COUNT];
+    float scale;
+    float gyroADC[XYZ_AXIS_COUNT];     // aligned, calibrated, scaled, but unfiltered data from the sensor(s)
+    float gyroADCf[XYZ_AXIS_COUNT];    // filtered gyro data
+
+    gyroDev_t *rawSensorDev;           // pointer to the sensor providing the raw data for DEBUG_GYRO_RAW
+
+    // lowpass gyro soft filter
+    filterApplyFnPtr lowpassFilterApplyFn;
+    gyroLowpassFilter_t lowpassFilter[XYZ_AXIS_COUNT];
+
+    // lowpass2 gyro soft filter
+    filterApplyFnPtr lowpass2FilterApplyFn;
+    gyroLowpassFilter_t lowpass2Filter[XYZ_AXIS_COUNT];
+
+    // notch filters
+    filterApplyFnPtr notchFilter1ApplyFn;
+    biquadFilter_t notchFilter1[XYZ_AXIS_COUNT];
+
+    filterApplyFnPtr notchFilter2ApplyFn;
+    biquadFilter_t notchFilter2[XYZ_AXIS_COUNT];
+
+    filterApplyFnPtr notchFilterDynApplyFn;
+    filterApplyFnPtr notchFilterDynApplyFn2;
+    biquadFilter_t notchFilterDyn[XYZ_AXIS_COUNT];
+    biquadFilter_t notchFilterDyn2[XYZ_AXIS_COUNT];
+
+#ifdef USE_GYRO_DATA_ANALYSE
+    gyroAnalyseState_t gyroAnalyseState;
+#endif
 } gyro_t;
 
 extern gyro_t gyro;
 
-typedef enum {
+enum {
     GYRO_OVERFLOW_CHECK_NONE = 0,
     GYRO_OVERFLOW_CHECK_YAW,
     GYRO_OVERFLOW_CHECK_ALL_AXES
-} gyroOverflowCheck_e;
+};
 
 enum {
     DYN_NOTCH_RANGE_HIGH = 0,
     DYN_NOTCH_RANGE_MEDIUM,
     DYN_NOTCH_RANGE_LOW,
     DYN_NOTCH_RANGE_AUTO
-} ;
+};
 
 #define DYN_NOTCH_RANGE_HZ_HIGH 2000
 #define DYN_NOTCH_RANGE_HZ_MEDIUM 1333
@@ -63,20 +103,27 @@ enum {
 #define GYRO_CONFIG_USE_GYRO_2      1
 #define GYRO_CONFIG_USE_GYRO_BOTH   2
 
-typedef enum {
+enum {
     FILTER_LOWPASS = 0,
     FILTER_LOWPASS2
-} filterSlots;
+};
+
+typedef enum gyroDetectionFlags_e {
+    NO_GYROS_DETECTED = 0,
+    DETECTED_GYRO_1 = (1 << 0),
+#if defined(USE_MULTI_GYRO)
+    DETECTED_GYRO_2 = (1 << 1),
+    DETECTED_BOTH_GYROS = (DETECTED_GYRO_1 | DETECTED_GYRO_2),
+    DETECTED_DUAL_GYROS = (1 << 7), // All gyros are of the same hardware type
+#endif
+} gyroDetectionFlags_t;
 
 typedef struct gyroConfig_s {
-    uint8_t  gyro_align;                       // gyro alignment
     uint8_t  gyroMovementCalibrationThreshold; // people keep forgetting that moving model while init results in wrong gyro offsets. and then they never reset gyro. so this is now on by default.
     uint8_t  gyro_sync_denom;                  // Gyro sample divider
     uint8_t  gyro_hardware_lpf;                // gyro DLPF setting
-    uint8_t  gyro_32khz_hardware_lpf;          // gyro 32khz DLPF setting
 
     uint8_t  gyro_high_fsr;
-    uint8_t  gyro_use_32khz;
     uint8_t  gyro_to_use;
 
     uint16_t gyro_lowpass_hz;
@@ -104,6 +151,7 @@ typedef struct gyroConfig_s {
     uint8_t  dyn_notch_width_percent;
     uint16_t dyn_notch_q;
     uint16_t dyn_notch_min_hz;
+    uint8_t  gyro_filter_debug_axis;
 } gyroConfig_t;
 
 PG_DECLARE(gyroConfig_t, gyroConfig);
@@ -127,6 +175,7 @@ bool gyroOverflowDetected(void);
 bool gyroYawSpinDetected(void);
 uint16_t gyroAbsRateDps(int axis);
 uint8_t gyroReadRegister(uint8_t whichSensor, uint8_t reg);
+gyroDetectionFlags_t getGyroDetectionFlags(void);
 #ifdef USE_DYN_LPF
 float dynThrottle(float throttle);
 void dynLpfGyroUpdate(float throttle);

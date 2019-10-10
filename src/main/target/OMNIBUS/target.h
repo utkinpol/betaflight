@@ -21,36 +21,9 @@
 #pragma once
 
 #undef USE_DSHOT_DMAR           // OMNIBUS (F3) does not benefit from burst Dshot
-
-// Removed to make the firmware fit into flash (in descending order of priority):
 #undef USE_GYRO_OVERFLOW_CHECK
-#undef USE_GYRO_LPF2
-
-#undef USE_RC_SMOOTHING_FILTER
-#undef USE_DYN_LPF
-
-#undef USE_ITERM_RELAX
-#undef USE_RC_SMOOTHING_FILTER
-
-#undef USE_HUFFMAN
-#undef USE_PINIO
-#undef USE_PINIOBOX
-
-#undef USE_TELEMETRY_HOTT
-#undef USE_TELEMETRY_MAVLINK
-#undef USE_TELEMETRY_LTM
-#undef USE_SERIALRX_XBUS
-#undef USE_SERIALRX_SUMH
-#undef USE_PWM
-
-#undef USE_BOARD_INFO
-#undef USE_EXTENDED_CMS_MENUS
-#undef USE_RTC_TIME
-#undef USE_RX_MSP
-#undef USE_ESC_SENSOR_INFO
 
 #define TARGET_BOARD_IDENTIFIER "OMNI" // https://en.wikipedia.org/wiki/Omnibus
-
 
 #define LED0_PIN                PB3
 
@@ -72,7 +45,6 @@
 
 #define USE_ACC
 #define USE_ACC_SPI_MPU6000
-#define ACC_1_ALIGN             CW90_DEG
 
 #define BARO_SPI_INSTANCE       SPI1
 #define BARO_CS_PIN             PA13
@@ -132,8 +104,6 @@
 #define USE_MAX7456
 #define MAX7456_SPI_INSTANCE    SPI1
 #define MAX7456_SPI_CS_PIN      PB1
-#define MAX7456_SPI_CLK         (SPI_CLOCK_STANDARD) // 10MHz
-#define MAX7456_RESTORE_CLK     (SPI_CLOCK_FAST)
 //#define MAX7456_DMA_IRQ_HANDLER_ID        DMA1_CH3_HANDLER
 
 #define USE_SPI
@@ -183,8 +153,6 @@
 //#define BUTTON_B_PIN            PB0
 
 //#define AVOID_UART3_FOR_PWM_PPM // Disable this for using UART3
-
-#define USE_SERIAL_4WAY_BLHELI_INTERFACE
 
 #define TARGET_IO_PORTA         0xffff
 #define TARGET_IO_PORTB         0xffff

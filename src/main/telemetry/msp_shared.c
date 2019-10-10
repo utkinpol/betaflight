@@ -30,8 +30,8 @@
 
 #include "common/utils.h"
 
-#include "interface/msp.h"
-#include "interface/msp_protocol.h"
+#include "msp/msp.h"
+#include "msp/msp_protocol.h"
 
 #include "telemetry/crsf.h"
 #include "telemetry/msp_shared.h"
@@ -177,7 +177,7 @@ bool handleMspFrame(uint8_t *frameStart, int frameLength, uint8_t *skipsBeforeRe
     if (packet->cmd == MSP_EEPROM_WRITE && skipsBeforeResponse) {
         *skipsBeforeResponse = TELEMETRY_REQUEST_SKIPS_AFTER_EEPROMWRITE;
     }
-    
+
     mspStarted = 0;
     sbufSwitchToReader(rxBuf, mspPackage.requestBuffer);
     processMspPacket();

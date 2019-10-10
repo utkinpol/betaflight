@@ -46,7 +46,6 @@
 #define USE_GYRO
 #define USE_GYRO_SPI_MPU6000
 #define GYRO_1_ALIGN             CW0_DEG
-#define ACC_1_ALIGN              CW0_DEG
 
 // DEFINE OSD
 #define USE_SPI_DEVICE_2
@@ -58,8 +57,6 @@
 #define USE_MAX7456
 #define MAX7456_SPI_INSTANCE    SPI2
 #define MAX7456_SPI_CS_PIN      PB12
-#define MAX7456_SPI_CLK         (SPI_CLOCK_STANDARD) // 10MHz
-#define MAX7456_RESTORE_CLK     (SPI_CLOCK_FAST)
 
 
 
@@ -108,9 +105,8 @@
 // DEFINE DEFAULT FEATURE
 #define DEFAULT_RX_FEATURE          FEATURE_RX_SERIAL
 #define DEFAULT_FEATURES            FEATURE_OSD
-#define USE_SERIAL_4WAY_BLHELI_INTERFACE
 
-#define TARGET_IO_PORTA (0xffff & ~(BIT(14)|BIT(13)))
+#define TARGET_IO_PORTA (0xffff & ~(BIT(13)))
 #define TARGET_IO_PORTB (0xffff & ~(BIT(2)))
 #define TARGET_IO_PORTC (0xffff & ~(BIT(15)|BIT(14)|BIT(13)))
 #define TARGET_IO_PORTD BIT(2)

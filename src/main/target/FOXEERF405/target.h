@@ -49,7 +49,6 @@
 #define GYRO_1_CS_PIN           PB2
 #define GYRO_1_SPI_INSTANCE     SPI1
 #define GYRO_1_ALIGN            CW90_DEG
-#define ACC_1_ALIGN             CW90_DEG
 
 //------ICM20689
 #define USE_GYRO_SPI_ICM20689
@@ -141,8 +140,6 @@
 
 #define USE_ESCSERIAL
 #define ESCSERIAL_TIMER_TX_PIN PA3
-#define USE_SERIAL_4WAY_BLHELI_INTERFACE
-
 
 #define TARGET_IO_PORTA         0xffff
 #define TARGET_IO_PORTB         0xffff

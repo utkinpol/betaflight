@@ -38,7 +38,6 @@
 #define USE_ACC
 #define USE_FAKE_ACC
 #define USE_ACC_MPU6050
-#define ACC_1_ALIGN       CW270_DEG
 
 #define USE_GYRO
 #define USE_FAKE_GYRO
@@ -62,6 +61,7 @@
 #define USE_BARO
 #define USE_FAKE_BARO
 #define USE_BARO_MS5611
+#define USE_BARO_BMP388
 
 #define USABLE_TIMER_CHANNEL_COUNT 9
 
@@ -133,8 +133,8 @@
 //#define SPI4_TX_DMA_OPT                     0     // DMA 2 Stream 1 Channel 4
 #define USE_SDCARD_SDIO
 
-#define SDIO_DMA_OPT            0  // DMA 2 Stream 3 Chanel 4
-#define SDCARD_SPI_CS_PIN NONE //This is not used on SDIO, has to be kept for now to keep compiler happy
+#define SDCARD_SDIO_DMA_OPT     0   // DMA 2 Stream 3 Chanel 4
+//#define SDCARD_SPI_CS_PIN NONE    // This is not used on SDIO
 
 #define USE_I2C
 #define USE_I2C_DEVICE_1
@@ -151,8 +151,6 @@
 
 #define DEFAULT_RX_FEATURE      FEATURE_RX_SERIAL
 #define SERIALRX_PROVIDER       SERIALRX_SBUS
-
-#define USE_SERIAL_4WAY_BLHELI_INTERFACE
 
 #define TARGET_IO_PORTA 0xffff
 #define TARGET_IO_PORTB 0xffff

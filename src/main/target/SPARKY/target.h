@@ -43,7 +43,6 @@
 
 #define USE_ACC
 #define USE_ACC_MPU6050
-#define ACC_1_ALIGN             CW270_DEG
 
 #define USE_BARO
 #define USE_BARO_MS5611
@@ -91,8 +90,6 @@
 #define CURRENT_METER_ADC_PIN   PA7
 
 #define DEFAULT_RX_FEATURE      FEATURE_RX_PPM
-
-#define USE_SERIAL_4WAY_BLHELI_INTERFACE
 
 //#define USE_RANGEFINDER
 //#define USE_RANGEFINDER_HCSR04

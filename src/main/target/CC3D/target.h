@@ -54,7 +54,6 @@
 
 #define USE_ACC
 #define USE_ACC_SPI_MPU6000
-#define ACC_1_ALIGN       CW270_DEG
 
 // MPU6000 interrupts
 #define USE_MPU_DATA_READY_SIGNAL
@@ -96,8 +95,6 @@
 #define CURRENT_METER_ADC_PIN   PB1
 #define VBAT_ADC_PIN            PA0
 #define RSSI_ADC_PIN            PB0
-
-#define USE_SERIAL_4WAY_BLHELI_INTERFACE
 
 //#define USE_RANGEFINDER
 //#define USE_RANGEFINDER_HCSR04

@@ -23,34 +23,6 @@
 #define TARGET_BOARD_IDENTIFIER "SP3N"
 #define USE_TARGET_CONFIG
 
-// Removed to make the firmware fit into flash (in descending order of priority):
-// NOTE: Don't disable USE_GYRO_OVERFLOW_CHECK - board has ICM20602 gyro
-//#undef USE_GYRO_OVERFLOW_CHECK
-//#undef USE_GYRO_LPF2
-
-#undef USE_MSP_DISPLAYPORT
-#undef USE_MSP_OVER_TELEMETRY
-
-#undef USE_ITERM_RELAX
-#undef USE_RC_SMOOTHING_FILTER
-
-#undef USE_HUFFMAN
-#undef USE_PINIO
-#undef USE_PINIOBOX
-
-#undef USE_TELEMETRY_HOTT
-#undef USE_TELEMETRY_MAVLINK
-#undef USE_TELEMETRY_LTM
-#undef USE_SERIALRX_XBUS
-#undef USE_SERIALRX_SUMH
-#undef USE_PWM
-
-#undef USE_BOARD_INFO
-#undef USE_EXTENDED_CMS_MENUS
-#undef USE_RTC_TIME
-#undef USE_RX_MSP
-#undef USE_ESC_SENSOR_INFO
-
 #define LED0_PIN                PB9
 #define LED1_PIN                PB2
 
@@ -73,7 +45,10 @@
 #define USE_ACC
 #define USE_ACC_SPI_MPU6500
 
-#define ACC_1_ALIGN             CW0_DEG
+#define USE_BARO
+#define USE_BARO_BMP280
+#define USE_BARO_MS5611
+
 #define GYRO_1_ALIGN            CW0_DEG
 
 #define USE_VCP
@@ -124,14 +99,10 @@
 #define SPI3_MOSI_PIN           PB5
 
 #define USE_VTX_RTC6705
-#define VTX_RTC6705_OPTIONAL    // VTX/OSD board is OPTIONAL
 
 #define RTC6705_CS_PIN          PF4
 #define RTC6705_SPI_INSTANCE    SPI3
 #define RTC6705_POWER_PIN       PC3
-
-#define USE_RTC6705_CLK_HACK
-#define RTC6705_CLK_PIN         SPI3_SCK_PIN
 
 #define USE_MAX7456
 #define MAX7456_SPI_INSTANCE    SPI3
@@ -181,8 +152,6 @@
 
 // FIXME While it's possible to use the button on the OSD/VTX board for binding enabling it here will break binding unless you have the OSD/VTX connected.
 //#define BINDPLUG_PIN                        BUTTON_A_PIN
-
-#define USE_SERIAL_4WAY_BLHELI_INTERFACE
 
 // IO - assuming 303 in 64pin package, TODO
 #define TARGET_IO_PORTA 0xffff

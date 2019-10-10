@@ -78,11 +78,6 @@
 // ACC section -- start
 #define USE_ACC
 #define USE_ACC_SPI_MPU6500
-#if defined(PIRXF4)
-#define ACC_1_ALIGN       CW0_DEG
-#else
-#define ACC_1_ALIGN       CW180_DEG_FLIP
-#endif
 // ACC section -- end
 
 // GYRO section -- start
@@ -170,8 +165,6 @@
 #define MAX7456_SPI_INSTANCE    SPI3
 #define MAX7456_SPI_CS_PIN      PC0
 #endif
-#define MAX7456_SPI_CLK         (SPI_CLOCK_STANDARD) // 10MHz
-#define MAX7456_RESTORE_CLK     (SPI_CLOCK_FAST)
 
 #define USE_ADC
 #define DEFAULT_VOLTAGE_METER_SOURCE VOLTAGE_METER_ADC
@@ -188,14 +181,13 @@
 #define DEFAULT_RX_FEATURE      FEATURE_RX_SERIAL
 #define SERIALRX_PROVIDER       SERIALRX_SBUS
 
-#define USE_SERIAL_4WAY_BLHELI_INTERFACE
 #define ENABLE_BLACKBOX_LOGGING_ON_SDCARD_BY_DEFAULT
 
 //SD CARD
 #define USE_SDCARD
 #define USE_SDCARD_SDIO
 
-#define SDIO_DMA_OPT            0  // DMA 2 Stream 3 Channel 4
+#define SDCARD_SDIO_DMA_OPT     0  // DMA 2 Stream 3 Channel 4
 #define SDCARD_SPI_CS_PIN NONE //This is not used on SDIO, has to be kept for now to keep compiler happy
 #if defined(PIRXF4)
 #define SDCARD_DETECT_PIN PC15

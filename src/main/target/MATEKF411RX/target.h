@@ -65,11 +65,6 @@
 #endif
 #define USE_ACC
 #define USE_ACC_SPI_MPU6000
-#if defined(CRAZYBEEF4FS) || defined(CRAZYBEEF4FR) || defined(CRAZYBEEF4DX)
-#define ACC_1_ALIGN            CW90_DEG
-#else
-#define ACC_1_ALIGN             CW180_DEG
-#endif
 // *************** SPI2 OSD *****************************
 #define USE_SPI_DEVICE_2
 #define SPI2_SCK_PIN            PB13
@@ -97,7 +92,7 @@
 #define USE_RX_SPI
 #define RX_SPI_INSTANCE         SPI3
 
-#define BINDPLUG_PIN            PB2
+#define RX_SPI_BIND_PIN         PB2
 
 #define DEFAULT_RX_FEATURE      FEATURE_RX_SPI
 
@@ -106,13 +101,12 @@
 #define RX_CHANNELS_AETR
 #define RX_SPI_DEFAULT_PROTOCOL RX_SPI_A7105_FLYSKY_2A
 #define FLYSKY_2A_CHANNEL_COUNT 14
-#define RX_IRQ_PIN              PA14
+#define RX_SPI_EXTI_PIN         PA14
 #define USE_RX_FLYSKY_SPI_LED
-#define RX_FLYSKY_SPI_LED_PIN   PB9
+#define RX_SPI_LED_PIN          PB9
 
 #elif defined(CRAZYBEEF4FR)
-#define RX_CC2500_SPI_DISABLE_CHIP_DETECTION
-#define RX_CC2500_SPI_GDO_0_PIN     PC14
+#define RX_SPI_EXTI_PIN             PC14
 #define RX_SPI_LED_PIN              PB9
 #define USE_RX_FRSKY_SPI_D
 #define USE_RX_FRSKY_SPI_X
@@ -122,7 +116,7 @@
 
 #else // MATEKF411RX
 #define RX_CC2500_SPI_DISABLE_CHIP_DETECTION
-#define RX_CC2500_SPI_GDO_0_PIN     PC14
+#define RX_SPI_EXTI_PIN             PC14
 #define RX_SPI_LED_PIN              PB9
 #define RX_SPI_LED_INVERTED
 
@@ -165,7 +159,6 @@
 #define CURRENT_METER_ADC_PIN   PB1
 
 #define USE_ESCSERIAL
-#define USE_SERIAL_4WAY_BLHELI_INTERFACE
 
 #define DEFAULT_FEATURES                (FEATURE_OSD | FEATURE_TELEMETRY )
 #define DEFAULT_VOLTAGE_METER_SOURCE    VOLTAGE_METER_ADC

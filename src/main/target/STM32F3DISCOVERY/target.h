@@ -36,30 +36,6 @@
 
 #define TARGET_BOARD_IDENTIFIER "SDF3" // STM Discovery F3
 
-// Removed to make the firmware fit into flash (in descending order of priority):
-//#undef USE_GYRO_OVERFLOW_CHECK
-//#undef USE_GYRO_LPF2
-
-//#undef USE_ITERM_RELAX
-//#undef USE_RC_SMOOTHING_FILTER
-
-#undef USE_HUFFMAN
-#undef USE_PINIO
-#undef USE_PINIOBOX
-
-#undef USE_TELEMETRY_HOTT
-#undef USE_TELEMETRY_MAVLINK
-#undef USE_TELEMETRY_LTM
-#undef USE_SERIALRX_XBUS
-#undef USE_SERIALRX_SUMH
-//#undef USE_PWM
-
-#undef USE_BOARD_INFO
-//#undef USE_RX_MSP
-//#undef USE_RTC_TIME
-#undef USE_EXTENDED_CMS_MENUS
-#undef USE_ESC_SENSOR_INFO
-
 #define USE_SENSOR_NAMES
 
 #define CURRENT_TARGET_CPU_VOLTAGE 3.0
@@ -141,7 +117,6 @@
 
 #define MPU_I2C_INSTANCE        (I2CDEV_1)
 #define USE_ACC_LSM303DLHC
-#define ACC_1_ALIGN             CW0_DEG
 
 #define USE_FAKE_ACC
 //#define USE_ACC_ADXL345
@@ -208,8 +183,6 @@
 #define USE_RANGEFINDER_HCSR04
 #define RANGEFINDER_HCSR04_TRIGGER_PIN       PB0
 #define RANGEFINDER_HCSR04_ECHO_PIN          PB1
-
-#define USE_SERIAL_4WAY_BLHELI_INTERFACE
 
 #define MAX_SUPPORTED_MOTORS    12
 

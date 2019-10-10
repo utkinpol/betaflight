@@ -75,7 +75,6 @@
 //#define LSM303DLHC_I2C_INT1_PIN              PE4
 //#define LSM303DLHC_I2C_INT2_PIN              PE5
 
-#define ACC_1_ALIGN             CW0_DEG
 
 #define USE_BARO
 #define USE_BARO_MS5611
@@ -105,8 +104,6 @@
 #define CURRENT_METER_ADC_PIN   PC1
 #define RSSI_ADC_PIN            PC2
 #define EXTERNAL1_ADC_PIN       PC3
-
-#undef USE_LED_STRIP
 
 // IO - assuming 303 in 64pin package, TODO
 #define TARGET_IO_PORTA         0xffff

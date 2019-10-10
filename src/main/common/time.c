@@ -26,6 +26,8 @@
 
 #include <stdint.h>
 
+#include "platform.h"
+
 #include "common/maths.h"
 #include "common/printf.h"
 #include "common/time.h"
@@ -198,7 +200,8 @@ bool dateTimeFormatUTC(char *buf, dateTime_t *dt)
 
 bool dateTimeFormatLocal(char *buf, dateTime_t *dt)
 {
-    return dateTimeFormat(buf, dt, timeConfig()->tz_offsetMinutes, false);
+    const int16_t timezoneOffset = rtcIsDateTimeValid(dt) ? timeConfig()->tz_offsetMinutes : 0;
+    return dateTimeFormat(buf, dt, timezoneOffset, false);
 }
 
 bool dateTimeFormatLocalShort(char *buf, dateTime_t *dt)
@@ -264,6 +267,7 @@ bool rtcSetDateTime(dateTime_t *dt)
     return rtcSet(&t);
 }
 
+#if defined(USE_PERSISTENT_OBJECTS)
 void rtcPersistWrite(int16_t offsetMinutes)
 {
     rtcTime_t workTime;
@@ -290,5 +294,5 @@ bool rtcPersistRead(rtcTime_t *t)
         return false;
     }
 }
-
 #endif
+#endif // USE_RTC_TIME

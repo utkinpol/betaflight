@@ -37,6 +37,9 @@ extern "C" {
 #include "gtest/gtest.h"
 
 extern "C" {
+
+PG_REGISTER(flight3DConfig_t, flight3DConfig, PG_MOTOR_3D_CONFIG, 0);
+
 boxBitmask_t rcModeActivationMask;
 int16_t debug[DEBUG16_VALUE_COUNT];
 uint8_t debugMode = 0;
@@ -218,6 +221,26 @@ void failsafeOnValidDataReceived(void)
 
 void failsafeOnValidDataFailed(void)
 {
+}
+
+float pt1FilterGain(float f_cut, float dT)
+{
+    UNUSED(f_cut);
+    UNUSED(dT);
+    return 0.0;
+}
+
+void pt1FilterInit(pt1Filter_t *filter, float k)
+{
+    UNUSED(filter);
+    UNUSED(k);
+}
+
+float pt1FilterApply(pt1Filter_t *filter, float input)
+{
+    UNUSED(filter);
+    UNUSED(input);
+    return 0.0;
 }
 
 }

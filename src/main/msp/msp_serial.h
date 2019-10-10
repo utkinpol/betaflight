@@ -21,7 +21,7 @@
 #pragma once
 
 #include "drivers/time.h"
-#include "interface/msp.h"
+#include "msp/msp.h"
 
 // Each MSP port requires state and a receive buffer, revisit this default if someone needs more than 3 MSP ports.
 #define MAX_MSP_PORT_COUNT 3
@@ -59,8 +59,9 @@ typedef enum {
 
 typedef enum {
     MSP_PENDING_NONE,
-    MSP_PENDING_BOOTLOADER,
-    MSP_PENDING_CLI
+    MSP_PENDING_BOOTLOADER_ROM,
+    MSP_PENDING_CLI,
+    MSP_PENDING_BOOTLOADER_FLASH,
 } mspPendingSystemRequest_e;
 
 #define MSP_PORT_INBUF_SIZE 192

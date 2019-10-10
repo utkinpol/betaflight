@@ -30,7 +30,6 @@
 #define BEEPER_PIN              PA4
 #define BEEPER_INVERTED
 
-#define USE_DUAL_GYRO
 #define USE_EXTI
 #define USE_GYRO_EXTI
 #define GYRO_1_EXTI_PIN         PC4
@@ -53,10 +52,8 @@
 #define USE_ACC_SPI_MPU6500
 
 #define GYRO_1_ALIGN                CW270_DEG
-#define ACC_1_ALIGN                 CW270_DEG
 
 #define GYRO_2_ALIGN                CW180_DEG
-#define ACC_2_ALIGN                 CW180_DEG
 
 #define GYRO_CONFIG_USE_GYRO_DEFAULT GYRO_CONFIG_USE_GYRO_1 
 
@@ -142,9 +139,6 @@
 #define DEFAULT_FEATURES                    FEATURE_OSD
 #define SERIALRX_UART                       SERIAL_PORT_USART1
 #define SERIALRX_PROVIDER                   SERIALRX_SBUS
-
-
-#define USE_SERIAL_4WAY_BLHELI_INTERFACE
 
 
 #define TARGET_IO_PORTA         0xffff

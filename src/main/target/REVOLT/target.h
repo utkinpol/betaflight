@@ -49,9 +49,6 @@
 
 #define USE_TARGET_CONFIG
 
-#define USE_SERIAL_4WAY_BLHELI_INTERFACE
-
-
 #define INVERTER_PIN_UART1      PC0
 
 /*----------Spi Config--------*/
@@ -93,7 +90,6 @@
 #define GYRO_1_SPI_INSTANCE     SPI1
 
 #define GYRO_1_ALIGN            CW0_DEG
-#define ACC_1_ALIGN             CW0_DEG
 
 #define USE_EXTI
 #define USE_GYRO_EXTI
@@ -118,8 +114,6 @@
 #define USE_MAX7456
 #define MAX7456_SPI_INSTANCE    SPI2
 #define MAX7456_SPI_CS_PIN      PD2
-#define MAX7456_SPI_CLK         (SPI_CLOCK_STANDARD) // 10MHz
-#define MAX7456_RESTORE_CLK     (SPI_CLOCK_FAST)
 #endif
 
 

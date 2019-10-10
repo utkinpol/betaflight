@@ -33,20 +33,19 @@
 
 #include "build/version.h"
 
-#include "drivers/system.h"
-
 #include "cms/cms.h"
 #include "cms/cms_types.h"
-#include "cms/cms_menu_builtin.h"
 
 // Sub menus
 
 #include "cms/cms_menu_imu.h"
 #include "cms/cms_menu_blackbox.h"
-#include "cms/cms_menu_osd.h"
+#include "cms/cms_menu_failsafe.h"
 #include "cms/cms_menu_ledstrip.h"
 #include "cms/cms_menu_misc.h"
+#include "cms/cms_menu_osd.h"
 #include "cms/cms_menu_power.h"
+#include "cms/cms_menu_saveexit.h"
 
 // VTX supplied menus
 
@@ -54,13 +53,19 @@
 #include "cms/cms_menu_vtx_smartaudio.h"
 #include "cms/cms_menu_vtx_tramp.h"
 
+#include "drivers/system.h"
+
+#include "fc/config.h"
+
+#include "msp/msp_protocol.h" // XXX for FC identification... not available elsewhere
+
+#include "cms_menu_builtin.h"
+
 
 // Info
 
 static char infoGitRev[GIT_SHORT_REVISION_LENGTH + 1];
 static char infoTargetName[] = __TARGET__;
-
-#include "interface/msp_protocol.h" // XXX for FC identification... not available elsewhere
 
 static long cmsx_InfoInit(void)
 {
@@ -76,7 +81,7 @@ static long cmsx_InfoInit(void)
     return 0;
 }
 
-static OSD_Entry menuInfoEntries[] = {
+static const OSD_Entry menuInfoEntries[] = {
     { "--- INFO ---", OME_Label, NULL, NULL, 0 },
     { "FWID", OME_String, NULL, BETAFLIGHT_IDENTIFIER, 0 },
     { "FWVER", OME_String, NULL, FC_VERSION_STRING, 0 },
@@ -98,7 +103,7 @@ static CMS_Menu menuInfo = {
 
 // Features
 
-static OSD_Entry menuFeaturesEntries[] =
+static const OSD_Entry menuFeaturesEntries[] =
 {
     {"--- FEATURES ---", OME_Label, NULL, NULL, 0},
 
@@ -120,6 +125,9 @@ static OSD_Entry menuFeaturesEntries[] =
     {"LED STRIP", OME_Submenu, cmsMenuChange, &cmsx_menuLedstrip, 0},
 #endif // LED_STRIP
     {"POWER", OME_Submenu, cmsMenuChange, &cmsx_menuPower, 0},
+#ifdef USE_CMS_FAILSAFE_MENU
+    {"FAILSAFE", OME_Submenu, cmsMenuChange, &cmsx_menuFailsafe, 0},
+#endif
     {"BACK", OME_Back, NULL, NULL, 0},
     {NULL, OME_END, NULL, NULL, 0}
 };
@@ -134,9 +142,21 @@ static CMS_Menu menuFeatures = {
     .entries = menuFeaturesEntries,
 };
 
+static long cmsx_SaveExitMenu(displayPort_t *pDisplay, const void *ptr)
+{
+    UNUSED(ptr);
+
+    if (getRebootRequired()) {
+        cmsMenuChange(pDisplay, &cmsx_menuSaveExitReboot);
+    } else {
+        cmsMenuChange(pDisplay, &cmsx_menuSaveExit);
+    }
+    return 0;
+}
+
 // Main
 
-static OSD_Entry menuMainEntries[] =
+static const OSD_Entry menuMainEntries[] =
 {
     {"-- MAIN --",  OME_Label, NULL, NULL, 0},
 
@@ -147,9 +167,7 @@ static OSD_Entry menuMainEntries[] =
 #endif
     {"FC&FW INFO",  OME_Submenu,  cmsMenuChange, &menuInfo, 0},
     {"MISC",        OME_Submenu,  cmsMenuChange, &cmsx_menuMisc, 0},
-    {"EXIT",        OME_OSD_Exit, cmsMenuExit,   (void *)CMS_EXIT, 0},
-    {"SAVE&EXIT",   OME_OSD_Exit, cmsMenuExit,   (void *)CMS_EXIT_SAVE, 0},
-    {"SAVE&REBOOT", OME_OSD_Exit, cmsMenuExit,   (void *)CMS_EXIT_SAVEREBOOT, 0},
+    {"SAVE/EXIT",   OME_Funcall,  cmsx_SaveExitMenu, NULL, 0},
 #ifdef CMS_MENU_DEBUG
     {"ERR SAMPLE",  OME_Submenu,  cmsMenuChange, &menuInfoEntries[0], 0},
 #endif

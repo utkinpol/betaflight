@@ -31,7 +31,13 @@ The supported protocols are:
 - 8 channels / 9 ms frame spacing **or** 16 channels / 18 ms frame spacing;
 - called 'D16' in OpenTX;
 - integrated FrSky SmartPort telemetry (including support for MSP over Smartport / lua scripts in OpenTX);
-- an EU compliant LBT version is not yet available.
+
+### FrSky X LBT
+
+- LBT protocol version compatible with EU;
+- 8 channels / 9 ms frame spacing **or** 16 channels / 18 ms frame spacing;
+- called 'D16' in OpenTX;
+- integrated FrSky SmartPort telemetry (including support for MSP over Smartport / lua scripts in OpenTX);
 
 
 ## Configuration
@@ -40,25 +46,25 @@ The supported protocols are:
 
 ![FrSky SPI RX mode selection](assets/images/frsky_spi_rx_mode.png)
 
-2. in the 'SPI Bus Receiver Provider' drop down that appears, select 'FRSKY_D' or 'FRSKY_X' (depending on the desired protocol):
+2. in the 'SPI Bus Receiver Provider' drop down that appears, select 'FRSKY_D', 'FRSKY_X' or 'FRSKY_X_LBT' (depending on the desired protocol):
 
 ![FrSky SPI RX protocol selection](assets/images/frsky_spi_rx_protocol.png)
 
 3. click 'Save & Reboot'. After the reboot, the RX LED will confirm that the FrSky RX is active by blinking slowly;
 4. enter bind mode by either:
 - pressing the 'Bind' button on the flight controller (if there is one and it's reachable);
-- entering CLI, and typing 'frsky_bind[Enter]'.
+- entering CLI, and typing 'bind_rx_spi[Enter]'.
 5. the flight controller will indicate that bind mode is active by changing the RX LED to be permanently on. Now, on your TX, enter bind mode for the selected FrSky protocol (see screenshots for OpenTX):
 
 FrSky D protocol:
 
 ![FrSky SPI RX FrSky D binding with OpenTX](assets/images/frsky_spi_rx_d_binding.png)
 
-FrSky X protocol:
+FrSky X and X_LBT protocol:
 
 ![FrSky SPI RX FrSky X binding with OpenTX](assets/images/frsky_spi_rx_x_binding.png)
 
-6. Once binding has completed, the flight controller will indicate this by blinking the RX LED slowly. A reboot of the flight controller is not required.
+6. Once binding has completed, the flight controller will indicate this by blinking the RX LED slowly. There's no indication on the CLI, but you can observe successful binding by quitting the bind mode on TX, and seeing if `status` doesn't list RXLOSS anymore in "Arming disable flags". A reboot of the flight controller is not required.
 
 
 ## Tips & Tricks
@@ -79,4 +85,6 @@ FrSky X protocol:
 - [Midelic F3](https://github.com/betaflight/betaflight/wiki/Board-Midelic-F3) (prototype only, not commercially available);
 - [Matek F411-ONE](http://www.mateksys.com/?portfolio=f411-one);
 - [CrazyBee F3 FR](boards/Board%20-%20CrazyBeeF3FR.md);
+- [CrazyBee F4 FR Pro](boards/Board%20-%20CrazyBeeF4FRPro.md);
+- [BetaFPV F4]
 - more to come...

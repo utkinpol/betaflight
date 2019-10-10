@@ -50,7 +50,6 @@
 
 #define USE_ACC
 #define USE_ACC_SPI_MPU6000
-#define ACC_1_ALIGN             CW90_DEG
 
 #define USE_VCP
 #define USE_UART1
@@ -75,8 +74,6 @@
 #define USE_ADC
 #define CURRENT_METER_ADC_PIN   PB1
 #define VBAT_ADC_PIN            PA0
-
-#define USE_SERIAL_4WAY_BLHELI_INTERFACE
 
 #define DEFAULT_RX_FEATURE      FEATURE_RX_SERIAL
 #define SERIALRX_PROVIDER       SERIALRX_SBUS

@@ -20,9 +20,7 @@
 
 #pragma once
 
-// Removed to make the firmware fit into flash (in descending order of priority):
 #undef USE_GYRO_OVERFLOW_CHECK // target does not use affected gyros
-//#undef USE_RTC_TIME
 
 #define TARGET_BOARD_IDENTIFIER "CLBR"
 
@@ -62,7 +60,6 @@
 #define USE_ACC
 #define USE_ACC_SPI_MPU6000
 #define USE_ACC_SPI_MPU6500
-#define ACC_1_ALIGN             CW270_DEG
 
 #define USE_BARO
 #define USE_BARO_MS5611
@@ -116,8 +113,6 @@
 #define DEFAULT_RX_FEATURE      FEATURE_RX_SERIAL
 #define SERIALRX_PROVIDER       SERIALRX_SBUS
 #define SERIALRX_UART           SERIAL_PORT_USART2
-
-#define USE_SERIAL_4WAY_BLHELI_INTERFACE
 
 // IO - assuming 303 in 64pin package, TODO
 #define TARGET_IO_PORTA         0xffff
