@@ -36,7 +36,7 @@
 
 #include "drivers/vtx_common.h"
 
-#include "fc/config.h"
+#include "config/config.h"
 
 #include "io/vtx_tramp.h"
 #include "io/vtx.h"
@@ -243,6 +243,7 @@ static CMS_Menu trampCmsMenuCommence = {
 #endif
     .onEnter = NULL,
     .onExit = NULL,
+    .checkRedirect = NULL,
     .entries = trampCmsMenuCommenceEntries,
 };
 
@@ -270,6 +271,7 @@ CMS_Menu cmsx_menuVtxTramp = {
 #endif
     .onEnter = trampCmsOnEnter,
     .onExit = NULL,
+    .checkRedirect = NULL,
     .entries = trampMenuEntries,
 };
 #endif

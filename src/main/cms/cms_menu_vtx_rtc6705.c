@@ -35,7 +35,7 @@
 
 #include "drivers/vtx_common.h"
 
-#include "fc/config.h"
+#include "config/config.h"
 
 #include "io/vtx_rtc6705.h"
 #include "io/vtx.h"
@@ -139,6 +139,7 @@ CMS_Menu cmsx_menuVtxRTC6705 = {
 #endif
     .onEnter = cmsx_Vtx_onEnter,
     .onExit = cmsx_Vtx_onExit,
+    .checkRedirect = NULL,
     .entries = cmsx_menuVtxEntries
 };
 

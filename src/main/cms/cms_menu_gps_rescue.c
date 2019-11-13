@@ -35,7 +35,7 @@
 
 #include "config/feature.h"
 
-#include "fc/config.h"
+#include "config/config.h"
 
 #include "flight/gps_rescue.h"
 
@@ -117,6 +117,7 @@ CMS_Menu cms_menuGpsRescuePid = {
 #endif
     .onEnter = cms_menuGpsRescuePidOnEnter,
     .onExit = cms_menuGpsRescuePidOnExit,
+    .checkRedirect = NULL,
     .entries = cms_menuGpsRescuePidEntries,
 };
 
@@ -198,6 +199,7 @@ CMS_Menu cmsx_menuGpsRescue = {
 #endif
     .onEnter = cmsx_menuGpsRescueOnEnter,
     .onExit = cmsx_menuGpsRescueOnExit,
+    .checkRedirect = NULL,
     .entries = cmsx_menuGpsRescueEntries,
 };
 
